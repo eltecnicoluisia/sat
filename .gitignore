@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Production build
+dist/
+build/
+out/
+dev-dist/
+
+# Environment and Secrets (CRITICAL)
+.env
+.env.*
+*.json.secret
+*service-account*.json
+!*service-account*.example.json
+firebase-service-account.json
+
+# Local Databases and binaries
+*.db
+*.sqlite
+*.sqlite3
+*.exe
+tools/
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary & Archive files
+*.log
+*.zip
+*.tar.gz

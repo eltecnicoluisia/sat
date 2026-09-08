@@ -34,12 +34,14 @@ const getAudioCtx = () => {
 // Mock data & demo fallback for GitHub Pages
 const DEMO_TECH_USER = {
   id: 1,
-  nombre: "Luis Uzcategui",
-  cedula: "V-19842512",
-  rol: "ADMIN",
-  departamento: "Soporte e Infraestructura TI",
-  email: "tecnicouzcategui@gmail.com"
+  fullName: "Usuario Demo (GitHub Pages)",
+  cedula: "administrador",
+  role: "Super Admin",
+  gerencia: "Tecnología",
+  unidad: "Demostración",
+  email: "demo@inapymi.gob.ve"
 };
+
 
 if (typeof window !== "undefined") {
   if (window.location.hostname.includes("github.io") || !localStorage.getItem("inapymi_user")) {
@@ -93,6 +95,8 @@ axios.interceptors.response.use(
           { name: "Respaldos", count: 20 }
         ]
       };
+    } else if (url.includes("/api/login")) {
+      data = DEMO_TECH_USER;
     } else {
       data = { success: true, message: "Operación simulada en modo demo" };
     }

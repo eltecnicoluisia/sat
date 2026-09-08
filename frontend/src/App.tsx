@@ -57,7 +57,17 @@ axios.interceptors.response.use(
     const url = error.config?.url || "";
     let data: any = {};
     if (url.includes("/api/stats")) {
-      data = { total: 148, pendientes: 6, enProgreso: 12, resueltos: 130, tiempoPromedio: "1.2 hrs" };
+      data = { 
+        total: 148, 
+        pendientes: 6, 
+        enProgreso: 12, 
+        resueltos: 130, 
+        tiempoPromedio: "1.2 hrs",
+        techRanking: [
+          { name: "Luis Uzcategui", count: 85, rating: 4.9 },
+          { name: "Carlos Mendoza", count: 45, rating: 4.7 }
+        ]
+      };
     } else if (url.includes("/api/categories")) {
       data = [
         { id: 1, name: "Soporte de Hardware & Servidores", color: "#38bdf8" },
@@ -93,6 +103,10 @@ axios.interceptors.response.use(
           { name: "Redes", count: 41 },
           { name: "Sistemas", count: 35 },
           { name: "Respaldos", count: 20 }
+        ],
+        techStats: [
+          { id: 1, name: "Luis Uzcategui", count: 85, rating: 4.9 },
+          { id: 2, name: "Carlos Mendoza", count: 45, rating: 4.7 }
         ]
       };
     } else if (url.includes("/api/login")) {

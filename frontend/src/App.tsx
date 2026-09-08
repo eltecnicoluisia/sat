@@ -1201,7 +1201,7 @@ export default function App() {
       {/* Main layout: sidebar + content, fills remaining height */}
       <div className="flex flex-1 overflow-hidden">
       {/* Sidebar Navigation — hidden on mobile (replaced by bottom bar) */}
-      <aside className="hidden sm:flex w-20 lg:w-72 border-r border-brand-blue-700 bg-brand-blue-900 flex-col justify-between transition-all duration-300 z-20 shadow-2xl h-full overflow-y-auto">
+      <aside className="hidden md:flex w-20 lg:w-72 border-r border-brand-blue-700 bg-brand-blue-900 flex-col justify-between transition-all duration-300 z-20 shadow-2xl h-full overflow-y-auto">
         <div>
           <div className="flex flex-col items-center justify-center pt-10 pb-8 border-b border-brand-blue-700 text-center px-4">
             <div className="relative mb-4">
@@ -1391,7 +1391,7 @@ export default function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-8 relative pb-20 sm:pb-8">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-8 relative pb-24 md:pb-8">
         {/* Ambient background glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-96 bg-brand-neon/5 blur-[120px] rounded-full pointer-events-none" />
 
@@ -2928,9 +2928,9 @@ export default function App() {
         </div>
       )}
       {/* =============================================================== */}
-      {/* MOBILE BOTTOM NAVIGATION BAR — visible only on sm and below     */}
+      {/* MOBILE BOTTOM NAVIGATION BAR — visible only on md and below     */}
       {/* =============================================================== */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-brand-blue-900 border-t border-brand-blue-700 shadow-2xl flex items-stretch">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-brand-blue-900 border-t border-brand-blue-700 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] flex items-stretch pb-[env(safe-area-inset-bottom)]">
         {[
           { id: "dashboard", icon: LayoutDashboard, label: "Bandeja", roles: ["Super Admin", "Técnico IT", "Solicitante"] },
           { id: "history", icon: History, label: currentUser?.role === "Super Admin" ? "Auditoría" : "Historial", roles: ["Super Admin", "Técnico IT", "Solicitante"] },

@@ -58,55 +58,58 @@ axios.interceptors.response.use(
     let data: any = {};
     if (url.includes("/api/stats")) {
       data = { 
-        total: 148, 
-        pendientes: 6, 
-        enProgreso: 12, 
-        resueltos: 130, 
-        tiempoPromedio: "1.2 hrs",
+        currentMonth: new Date().toISOString().substring(0, 7),
         techRanking: [
-          { name: "Luis Uzcategui", count: 85, rating: 4.9 },
-          { name: "Carlos Mendoza", count: 45, rating: 4.7 }
+          { name: "Luis Uzcategui", closed: 85 },
+          { name: "Carlos Mendoza", closed: 45 }
         ]
       };
     } else if (url.includes("/api/categories")) {
       data = [
-        { id: 1, name: "Soporte de Hardware & Servidores", color: "#38bdf8" },
-        { id: 2, name: "Redes, Switches & Conectividad", color: "#818cf8" },
-        { id: 3, name: "Sistemas Administrativos & ERP", color: "#34d399" },
-        { id: 4, name: "Mantenimiento Preventivo & Respaldos", color: "#fbbf24" }
+        { id: "1", title: "Soporte de Hardware & Servidores", requiresDescription: true, requiresImage: false },
+        { id: "2", title: "Redes, Switches & Conectividad", requiresDescription: true, requiresImage: false },
+        { id: "3", title: "Sistemas Administrativos & ERP", requiresDescription: false, requiresImage: false },
+        { id: "4", title: "Mantenimiento Preventivo & Respaldos", requiresDescription: true, requiresImage: false }
       ];
     } else if (url.includes("/api/bot-rules")) {
       data = [
-        { id: 1, keyword: "impresora", response: "Verifique que el cable de red esté conectado y reinicie la cola de impresión.", isActive: true },
-        { id: 2, keyword: "contraseña", response: "Para restablecer su acceso corporativo, comuníquese con el administrador del dominio.", isActive: true }
+        { id: "1", keywords: "impresora, toner, impresion", response: "Verifique que el cable de red esté conectado y reinicie la cola de impresión.", isActive: true },
+        { id: "2", keywords: "contraseña, clave, acceso, login", response: "Para restablecer su acceso corporativo, comuníquese con el administrador del dominio.", isActive: true }
       ];
     } else if (url.includes("/api/tickets")) {
       data = [
-        { id: 1048, correlative: 1048, title: "Falla de enlace de fibra en Galpón Principal", user: { fullName: "Carlos Mendoza", gerencia: "Operaciones y Logística", unidad: "Almacén Central" }, category: "Redes, Switches & Conectividad", priority: "Alta", status: "En Proceso", createdAt: "2026-09-07T10:15:00.000Z", description: "Corte intermitente en switch principal de distribución." },
-        { id: 1047, correlative: 1047, title: "Instalación de Punto de Venta POS Terminal 4", user: { fullName: "Elena Rivas", gerencia: "Administración", unidad: "Caja Principal" }, category: "Sistemas Administrativos & ERP", priority: "Media", status: "En Espera", createdAt: "2026-09-07T09:30:00.000Z", description: "Configuración de driver fiscal y conexión con base de datos." },
-        { id: 1046, correlative: 1046, title: "Alerta de temperatura en Servidor Dell R750", user: { fullName: "Luis Uzcategui", gerencia: "Tecnología", unidad: "Centro de Datos" }, category: "Soporte de Hardware & Servidores", priority: "Urgente", status: "En Proceso", createdAt: "2026-09-07T08:00:00.000Z", description: "Limpieza preventiva y cambio de pasta térmica en nodos 1 y 2." },
-        { id: 1045, correlative: 1045, title: "Configuración de Backup automatizado en NAS", user: { fullName: "Roberto Gómez", gerencia: "Sistemas", unidad: "Seguridad Digital" }, category: "Mantenimiento Preventivo & Respaldos", priority: "Baja", status: "En Espera", createdAt: "2026-09-06T16:20:00.000Z", description: "Programación de tareas cron nocturnas a las 02:00 AM." },
-        { id: 1044, correlative: 1044, title: "Sustitución de Baterías en UPS APC Smart 3000VA", user: { fullName: "Javier Castillo", gerencia: "Infraestructura", unidad: "Energía Crítica" }, category: "Soporte de Hardware & Servidores", priority: "Media", status: "En Proceso", createdAt: "2026-09-06T11:45:00.000Z", description: "Reemplazo de módulo de celdas 12V 9Ah y prueba de transferencia." }
+        { id: "1048", correlative: 1048, title: "Falla de enlace de fibra en Galpón Principal", user: { fullName: "Carlos Mendoza", gerencia: "Operaciones y Logística", unidad: "Almacén Central" }, tech: { fullName: "Luis Uzcategui" }, category: "Redes, Switches & Conectividad", priority: "Alta", status: "En Proceso", createdAt: "2026-09-07T10:15:00.000Z", description: "Corte intermitente en switch principal de distribución." },
+        { id: "1047", correlative: 1047, title: "Instalación de Punto de Venta POS Terminal 4", user: { fullName: "Elena Rivas", gerencia: "Administración", unidad: "Caja Principal" }, tech: null, category: "Sistemas Administrativos & ERP", priority: "Media", status: "En Espera", createdAt: "2026-09-07T09:30:00.000Z", description: "Configuración de driver fiscal y conexión con base de datos." },
+        { id: "1046", correlative: 1046, title: "Alerta de temperatura en Servidor Dell R750", user: { fullName: "Luis Uzcategui", gerencia: "Tecnología", unidad: "Centro de Datos" }, tech: { fullName: "Carlos Mendoza" }, category: "Soporte de Hardware & Servidores", priority: "Urgente", status: "En Proceso", createdAt: "2026-09-07T08:00:00.000Z", description: "Limpieza preventiva y cambio de pasta térmica en nodos 1 y 2." },
+        { id: "1045", correlative: 1045, title: "Configuración de Backup automatizado en NAS", user: { fullName: "Roberto Gómez", gerencia: "Sistemas", unidad: "Seguridad Digital" }, tech: null, category: "Mantenimiento Preventivo & Respaldos", priority: "Baja", status: "En Espera", createdAt: "2026-09-06T16:20:00.000Z", description: "Programación de tareas cron nocturnas a las 02:00 AM." },
+        { id: "1044", correlative: 1044, title: "Sustitución de Baterías en UPS APC Smart 3000VA", user: { fullName: "Javier Castillo", gerencia: "Infraestructura", unidad: "Energía Crítica" }, tech: { fullName: "Luis Uzcategui" }, category: "Soporte de Hardware & Servidores", priority: "Media", status: "Cerrado (Conforme)", createdAt: "2026-09-06T11:45:00.000Z", description: "Reemplazo de módulo de celdas 12V 9Ah y prueba de transferencia." }
       ];
     } else if (url.includes("/api/users")) {
       data = [
-        { id: 1, nombre: "Luis Uzcategui", cedula: "V-19842512", rol: "ADMIN", departamento: "Tecnología e Infraestructura", email: "tecnicouzcategui@gmail.com" },
-        { id: 2, nombre: "Carlos Mendoza", cedula: "V-20194821", rol: "TECNICO", departamento: "Soporte en Sitio", email: "cmendoza@inapymi.gob.ve" }
+        { id: "1", fullName: "Luis Uzcategui", cedula: "19842512", role: "Técnico IT", status: "Activo", gerencia: "Tecnología e Infraestructura", unidad: "Soporte Técnico", email: "tecnicouzcategui@gmail.com" },
+        { id: "2", fullName: "Carlos Mendoza", cedula: "20194821", role: "Técnico IT", status: "Activo", gerencia: "Soporte en Sitio", unidad: "Redes y Servidores", email: "cmendoza@inapymi.gob.ve" },
+        { id: "3", fullName: "Usuario Demo (GitHub Pages)", cedula: "administrador", role: "Super Admin", status: "Activo", gerencia: "Tecnología", unidad: "Demostración", email: "demo@inapymi.gob.ve" },
+        { id: "4", fullName: "Elena Rivas", cedula: "18765432", role: "Solicitante", status: "Activo", gerencia: "Administración", unidad: "Caja Principal", email: "erivas@inapymi.gob.ve" }
       ];
     } else if (url.includes("/api/reports")) {
       data = {
-        totalTickets: 148,
-        resolvedTickets: 130,
-        pendingTickets: 18,
+        targetMonth: new Date().toISOString().substring(0, 7),
+        globalStats: {
+          total: 148,
+          conformes: 130,
+          noConformes: 12,
+          cancelados: 6,
+          pendientes: 6
+        },
+        techStats: [
+          { id: "1", name: "Luis Uzcategui", totalAssigned: 85, conformes: 80, successRate: "94.1" },
+          { id: "2", name: "Carlos Mendoza", totalAssigned: 63, conformes: 50, successRate: "79.4" }
+        ],
         categoriesBreakdown: [
           { name: "Hardware", count: 52 },
           { name: "Redes", count: 41 },
           { name: "Sistemas", count: 35 },
           { name: "Respaldos", count: 20 }
-        ],
-        techStats: [
-          { id: 1, name: "Luis Uzcategui", count: 85, rating: 4.9 },
-          { id: 2, name: "Carlos Mendoza", count: 45, rating: 4.7 }
         ]
       };
     } else if (url.includes("/api/login")) {
@@ -1269,7 +1272,7 @@ export default function App() {
               },
               {
                 id: "settings",
-                icon: Settings, Bot,
+                icon: Settings,
                 label: "Configuración Global",
                 roles: ["Super Admin"],
               },

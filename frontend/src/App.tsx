@@ -1196,11 +1196,12 @@ export default function App() {
 
 
   return (
-    <div className="min-h-screen flex flex-col bg-brand-blue-900 text-slate-100 overflow-hidden">
+    <div className="h-screen flex flex-col bg-brand-blue-900 text-slate-100 overflow-hidden">
 
-      <div className="flex-1 flex overflow-hidden">
-      {/* Sidebar Navigation */}
-      <aside className="w-20 lg:w-72 border-r border-brand-blue-700 border-t bg-brand-blue-900 flex flex-col justify-between transition-all duration-300 z-20 shadow-2xl">
+      {/* Main layout: sidebar + content, fills remaining height */}
+      <div className="flex flex-1 overflow-hidden">
+      {/* Sidebar Navigation — hidden on mobile (replaced by bottom bar) */}
+      <aside className="hidden sm:flex w-20 lg:w-72 border-r border-brand-blue-700 bg-brand-blue-900 flex-col justify-between transition-all duration-300 z-20 shadow-2xl h-full overflow-y-auto">
         <div>
           <div className="flex flex-col items-center justify-center pt-10 pb-8 border-b border-brand-blue-700 text-center px-4">
             <div className="relative mb-4">
@@ -1390,7 +1391,7 @@ export default function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-8 relative">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-8 relative pb-20 sm:pb-8">
         {/* Ambient background glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-96 bg-brand-neon/5 blur-[120px] rounded-full pointer-events-none" />
 
@@ -2926,6 +2927,46 @@ export default function App() {
           </div>
         </div>
       )}
+      {/* =============================================================== */}
+      {/* MOBILE BOTTOM NAVIGATION BAR — visible only on sm and below     */}
+      {/* =============================================================== */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-brand-blue-900 border-t border-brand-blue-700 shadow-2xl flex items-stretch">
+        {[
+          { id: "dashboard", icon: LayoutDashboard, label: "Bandeja", roles: ["Super Admin", "Técnico IT", "Solicitante"] },
+          { id: "history", icon: History, label: currentUser?.role === "Super Admin" ? "Auditoría" : "Historial", roles: ["Super Admin", "Técnico IT", "Solicitante"] },
+          { id: "reports", icon: Activity, label: "Informes", roles: ["Super Admin"] },
+          { id: "users", icon: Users, label: "Usuarios", roles: ["Super Admin"] },
+          { id: "settings", icon: Settings, label: "Config", roles: ["Super Admin"] },
+        ]
+          .filter((item) => item.roles.includes(currentUser.role))
+          .map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-all duration-200 ${
+                activeTab === item.id
+                  ? "text-brand-neon border-t-2 border-brand-neon"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              <item.icon size={20} />
+              <span className="text-[10px] font-semibold leading-tight">{item.label}</span>
+            </button>
+          ))}
+        {/* Logout button at the end */}
+        <button
+          onClick={handleLogout}
+          className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-slate-500 hover:text-red-400 transition-all duration-200"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span className="text-[10px] font-semibold leading-tight">Salir</span>
+        </button>
+      </nav>
+
       </div>
     </div>
   );

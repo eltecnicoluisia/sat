@@ -33,7 +33,7 @@ const getAudioCtx = () => {
 
 // Mock data & demo fallback for GitHub Pages
 const DEMO_TECH_USER = {
-  id: 1,
+  id: "1",
   fullName: "Usuario Demo (GitHub Pages)",
   cedula: "administrador",
   role: "Super Admin",
@@ -41,15 +41,6 @@ const DEMO_TECH_USER = {
   unidad: "Demostración",
   email: "demo@inapymi.gob.ve"
 };
-
-
-if (typeof window !== "undefined") {
-  if (window.location.hostname.includes("github.io") || !localStorage.getItem("inapymi_user")) {
-    if (!localStorage.getItem("inapymi_user")) {
-      localStorage.setItem("inapymi_user", JSON.stringify(DEMO_TECH_USER));
-    }
-  }
-}
 
 axios.interceptors.response.use(
   (response) => response,

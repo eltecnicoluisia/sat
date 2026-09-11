@@ -4,7 +4,8 @@ import { io, Socket } from "socket.io-client";
 import {
   LayoutDashboard,
   Users,
-  Settings, Bot,
+  Settings,
+  Bot,
   LifeBuoy,
   Activity,
   CheckCircle2,
@@ -17,6 +18,7 @@ import {
   Archive,
   History,
   XCircle,
+  Sparkles,
 } from "lucide-react";
 import PymiWidget from "./components/PymiWidget";
 
@@ -31,23 +33,78 @@ const getAudioCtx = () => {
   return globalAudioCtx;
 };
 
-// Mock data & demo fallback for GitHub Pages
-const DEMO_TECH_USER = {
-  id: "1",
-  fullName: "Usuario Demo (GitHub Pages)",
-  cedula: "administrador",
-  role: "Super Admin",
-  gerencia: "Tecnología",
-  unidad: "Demostración",
-  email: "demo@inapymi.gob.ve"
-};
+// Detección de entorno: GitHub Pages (Demo estático) vs Servidor Local (Backend real con BD)
+const isGitHubDemo = typeof window !== "undefined" && window.location.hostname.includes("github.io");
+
+const DEMO_USERS = [
+  {
+    id: "1",
+    fullName: "Usuario Demo (Super Admin)",
+    cedula: "administrador",
+    role: "Super Admin",
+    gerencia: "Tecnología e Infraestructura",
+    unidad: "Administración General",
+    email: "demo.admin@inapymi.gob.ve",
+    roleLabel: "Super Admin"
+  },
+  {
+    id: "2",
+    fullName: "Carlos Mendoza (Técnico)",
+    cedula: "20194821",
+    role: "Técnico IT",
+    gerencia: "Soporte en Sitio",
+    unidad: "Redes y Servidores",
+    email: "cmendoza@inapymi.gob.ve",
+    roleLabel: "Técnico IT"
+  },
+  {
+    id: "3",
+    fullName: "Elena Rivas (Solicitante)",
+    cedula: "18765432",
+    role: "Solicitante",
+    gerencia: "Administración",
+    unidad: "Caja Principal",
+    email: "erivas@inapymi.gob.ve",
+    roleLabel: "Solicitante"
+  }
+];
 
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Si estamos en el servidor local con backend real y el servidor devuelve un error (ej: 401 Credenciales inválidas)
+    // Dejamos pasar el error para que NO se inicie sesión con usuarios no registrados
+    if (!isGitHubDemo && error.response) {
+      return Promise.reject(error);
+    }
+
     const url = error.config?.url || "";
     let data: any = {};
-    if (url.includes("/api/stats")) {
+
+    if (url.includes("/api/login")) {
+      try {
+        const body = typeof error.config?.data === "string" ? JSON.parse(error.config.data) : (error.config?.data || {});
+        const inputCedula = (body.cedula || "").trim().toLowerCase();
+        const matched = DEMO_USERS.find(u => u.cedula.toLowerCase() === inputCedula);
+        if (matched) {
+          return Promise.resolve({ data: matched, status: 200, statusText: "OK", headers: {}, config: error.config });
+        } else {
+          return Promise.reject({
+            response: {
+              status: 401,
+              data: { error: "Usuario no registrado en la demo. Selecciona: Super Admin, Técnico o Solicitante" }
+            }
+          });
+        }
+      } catch {
+        return Promise.reject({
+          response: {
+            status: 401,
+            data: { error: "Credenciales inválidas" }
+          }
+        });
+      }
+    } else if (url.includes("/api/stats")) {
       data = { 
         currentMonth: new Date().toISOString().substring(0, 7),
         techRanking: [
@@ -103,8 +160,6 @@ axios.interceptors.response.use(
           { name: "Respaldos", count: 20 }
         ]
       };
-    } else if (url.includes("/api/login")) {
-      data = DEMO_TECH_USER;
     } else {
       data = { success: true, message: "Operación simulada en modo demo" };
     }
@@ -1094,6 +1149,37 @@ export default function App() {
             </div>
           ) : (
             <form onSubmit={handleLogin} className="space-y-5 animate-fade-in">
+              {isGitHubDemo && (
+                <div className="p-4 rounded-2xl bg-brand-blue-900/90 border border-brand-neon/30 text-xs shadow-lg mb-2">
+                  <div className="flex items-center gap-2 text-brand-neon font-bold text-sm mb-1.5">
+                    <Sparkles size={16} /> Modo Demostración (GitHub Pages)
+                  </div>
+                  <p className="text-slate-300 text-xs mb-3">
+                    Selecciona un perfil para probar el sistema:
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {DEMO_USERS.map((demo) => (
+                      <button
+                        key={demo.id}
+                        type="button"
+                        onClick={() => {
+                          setLoginForm({ cedula: demo.cedula, password: "demo" });
+                          setLoginError("");
+                        }}
+                        className={`p-2.5 rounded-xl border transition-all text-center flex flex-col items-center group cursor-pointer ${
+                          loginForm.cedula === demo.cedula.toLowerCase()
+                            ? "bg-brand-neon/20 border-brand-neon text-brand-neon shadow-[0_0_12px_rgba(57,255,20,0.3)]"
+                            : "bg-brand-blue-800/90 hover:bg-brand-blue-700 border-brand-blue-600 text-slate-200 hover:text-brand-neon"
+                        }`}
+                      >
+                        <span className="font-bold text-[11px] truncate w-full">{demo.roleLabel}</span>
+                        <span className="text-[10px] text-slate-400 font-mono mt-0.5">{demo.cedula}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-slate-400 mb-2">
                   Usuario o Cédula de Identidad

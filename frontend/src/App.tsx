@@ -153,10 +153,15 @@ export default function App() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  // Autenticación
+  // Autenticación en sesión de pestaña/navegador (se destruye al cerrar el navegador)
   const [currentUser, setCurrentUser] = useState<any>(() => {
-    const saved = localStorage.getItem("inapymi_user");
-    return saved ? JSON.parse(saved) : null;
+    try {
+      localStorage.removeItem("inapymi_user");
+      const saved = sessionStorage.getItem("inapymi_user");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
   const [loginForm, setLoginForm] = useState({ cedula: "", password: "" });
   const [loginError, setLoginError] = useState("");
@@ -527,7 +532,7 @@ export default function App() {
         setMustChangePasswordUser(res.data);
       } else {
         setCurrentUser(res.data);
-        localStorage.setItem("inapymi_user", JSON.stringify(res.data));
+        sessionStorage.setItem("inapymi_user", JSON.stringify(res.data));
       }
     } catch (err: any) {
       setLoginError(err.response?.data?.error || "Error de conexión");
@@ -562,7 +567,7 @@ export default function App() {
         mustChangePassword: false,
       };
       setCurrentUser(updatedUser);
-      localStorage.setItem("inapymi_user", JSON.stringify(updatedUser));
+      sessionStorage.setItem("inapymi_user", JSON.stringify(updatedUser));
       setMustChangePasswordUser(null);
       setForcePasswordForm({ newPassword: "" });
       setLoginForm({ cedula: "", password: "" });
@@ -588,6 +593,7 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    sessionStorage.clear();
     localStorage.clear();
     setLoginForm({ cedula: "", password: "" });
     setLoginError("");
@@ -595,6 +601,44 @@ export default function App() {
     setIsRecoverPasswordView(false);
     setIsRecoverySent(false);
   };
+
+  // Cierre de sesión automático por inactividad tras 1 hora (60 minutos)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hora de inactividad
+    let inactivityTimer: any;
+
+    const resetInactivityTimer = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        alert("⚠️ Tu sesión ha expirado automáticamente por inactividad (1 hora). Por favor vuelve a ingresar.");
+        handleLogout();
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const userActivityEvents = [
+      "mousedown",
+      "mousemove",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "click",
+    ];
+
+    userActivityEvents.forEach((evt) => {
+      window.addEventListener(evt, resetInactivityTimer, { passive: true });
+    });
+
+    resetInactivityTimer();
+
+    return () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      userActivityEvents.forEach((evt) => {
+        window.removeEventListener(evt, resetInactivityTimer);
+      });
+    };
+  }, [currentUser]);
 
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();

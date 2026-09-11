@@ -42,4 +42,9 @@ desktop.ini
 # Temporary & Archive files
 *.log
 *.zip
+*.tar
 *.tar.gz
+deploy_*.js
+dist.tar
+sat_dist.zip
+

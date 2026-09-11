@@ -94,9 +94,33 @@ const io = new Server(server, {
   }
 });
 
+// Middleware de Rate Limiting en memoria contra ataques de fuerza bruta
+const authAttempts = new Map<string, { count: number; resetTime: number }>();
+const rateLimitAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowMs = 5 * 60 * 1000; // 5 minutos
+  const maxAttempts = 15; // Máximo 15 intentos por IP en 5 minutos
+
+  const record = authAttempts.get(ip);
+  if (record && record.resetTime > now) {
+    if (record.count >= maxAttempts) {
+      return res.status(429).json({ error: 'Demasiados intentos. Por favor espere 5 minutos antes de volver a intentar.' });
+    }
+    record.count++;
+  } else {
+    authAttempts.set(ip, { count: 1, resetTime: now + windowMs });
+  }
+  next();
+};
+
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
+
 
 // ---- BOT RULES ----
 app.get('/api/bot-rules', async (req, res) => {
@@ -217,31 +241,34 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-// Endpoint de Inicio de Sesión
-app.post('/api/login', async (req, res) => {
+// Endpoint de Inicio de Sesión Seguro con Rate Limiting
+app.post('/api/login', rateLimitAuth, async (req, res) => {
   const { cedula, password } = req.body;
+  if (!cedula || !password) {
+    return res.status(400).json({ error: 'Cédula y contraseña requeridas' });
+  }
+
   try {
-    let user;
-    // Permitir el backdoor quemado en código para el superadmin (cedula = 'administrador')
-    if (cedula === 'administrador') {
-      user = await prisma.user.findUnique({ where: { cedula: 'administrador' } });
-    } else {
-      user = await prisma.user.findUnique({ where: { cedula } });
-    }
+    const user = await prisma.user.findUnique({ where: { cedula } });
 
     if (!user) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    let isMatch = await bcrypt.compare(password, user.password);
     
+    // Migración transparente si alguna cuenta antigua tenía la contraseña en texto plano
+    if (!isMatch && user.password === password) {
+      const secureHash = await bcrypt.hash(password, 10);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { password: secureHash }
+      });
+      isMatch = true;
+    }
+
     if (!isMatch) {
-      // Fallback temporal para login hardcodeado 'administrador'
-      if (cedula === 'administrador' && user.password === password) {
-        // Permitido temporalmente
-      } else {
-        return res.status(401).json({ error: 'Credenciales inválidas' });
-      }
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
     if (user.status === 'Inactivo') {
@@ -529,7 +556,7 @@ app.put('/api/users/:id/password', async (req, res) => {
   }
 });
 
-app.post('/api/recover-password', async (req, res) => {
+app.post('/api/recover-password', rateLimitAuth, async (req, res) => {
   try {
     const { cedula, email } = req.body;
     const user = await prisma.user.findFirst({

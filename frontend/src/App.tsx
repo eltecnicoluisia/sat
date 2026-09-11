@@ -72,9 +72,9 @@ const DEMO_USERS = [
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Si estamos en el servidor local con backend real y el servidor devuelve un error (ej: 401 Credenciales inválidas)
-    // Dejamos pasar el error para que NO se inicie sesión con usuarios no registrados
-    if (!isGitHubDemo && error.response) {
+    // Si NO estamos en GitHub Pages (estamos en el servidor local de producción),
+    // NUNCA interceptar ni simular datos: las peticiones deben ser 100% reales contra la BD
+    if (!isGitHubDemo) {
       return Promise.reject(error);
     }
 

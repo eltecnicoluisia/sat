@@ -250,7 +250,7 @@ export default function App() {
   const [userForm, setUserForm] = useState({
     fullName: "",
     cedula: "",
-    emailPrefix: "",
+    email: "",
     role: "Solicitante",
     password: "",
     gerencia: "",
@@ -534,9 +534,7 @@ export default function App() {
     }
 
     try {
-      const email = userForm.emailPrefix
-        ? `${userForm.emailPrefix}@inapymi.gob.ve`
-        : null;
+      const email = userForm.email ? userForm.email.trim() : null;
       
       const payload: any = {
         fullName: userForm.fullName,
@@ -561,7 +559,7 @@ export default function App() {
       setUserForm({
         fullName: "",
         cedula: "",
-        emailPrefix: "",
+        email: "",
         role: "Solicitante",
         password: "",
         gerencia: "",
@@ -1082,7 +1080,7 @@ export default function App() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-400 mb-2">
-                      Correo Institucional
+                      Correo Electrónico
                     </label>
                     <input
                       type="email"
@@ -1095,7 +1093,7 @@ export default function App() {
                         })
                       }
                       className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-xl p-4 text-white focus:outline-none focus:border-brand-neon transition-colors"
-                      placeholder="ejemplo@inapymi.gob.ve"
+                      placeholder="ejemplo@correo.com"
                     />
                   </div>
                   {loginError && (
@@ -1933,7 +1931,7 @@ export default function App() {
               <button
                 onClick={() => {
                   setEditingUserId(null);
-                  setUserForm({ fullName: "", cedula: "", emailPrefix: "", role: "Solicitante", password: "", gerencia: "", unidad: "" });
+                  setUserForm({ fullName: "", cedula: "", email: "", role: "Solicitante", password: "", gerencia: "", unidad: "" });
                   setIsUserModalOpen(true);
                 }}
                 className="bg-brand-neon text-brand-blue-900 font-bold py-2 px-4 rounded-lg flex items-center hover:scale-105 transition-transform shadow-[0_0_15px_rgba(57,255,20,0.3)]"
@@ -2137,7 +2135,7 @@ export default function App() {
                             setUserForm({
                               fullName: u.fullName,
                               cedula: u.cedula,
-                              emailPrefix: u.email ? u.email.split('@')[0] : '',
+                              email: u.email || '',
                               role: u.role,
                               password: '',
                               gerencia: u.gerencia || '',
@@ -2719,25 +2717,17 @@ export default function App() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-400 mb-1">
-                      Correo Electrónico Institucional
+                      Correo Electrónico
                     </label>
-                    <div className="flex bg-brand-blue-900 border border-brand-blue-700 rounded-lg overflow-hidden focus-within:border-brand-neon transition-colors">
-                      <input
-                        type="text"
-                        value={userForm.emailPrefix}
-                        onChange={(e) => {
-                          const val = e.target.value
-                            .replace(/[^a-zA-Z]/g, "")
-                            .toLowerCase();
-                          setUserForm({ ...userForm, emailPrefix: val });
-                        }}
-                        placeholder="usuario"
-                        className="w-full p-3 text-white bg-transparent focus:outline-none"
-                      />
-                      <span className="p-3 text-slate-400 bg-brand-blue-800 border-l border-brand-blue-700 font-medium select-none whitespace-nowrap">
-                        @inapymi.gob.ve
-                      </span>
-                    </div>
+                    <input
+                      type="email"
+                      value={userForm.email}
+                      onChange={(e) =>
+                        setUserForm({ ...userForm, email: e.target.value.toLowerCase().trim() })
+                      }
+                      placeholder="ejemplo@correo.com"
+                      className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-neon transition-colors"
+                    />
                   </div>
                 </>
               )}

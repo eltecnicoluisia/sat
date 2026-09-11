@@ -1,6 +1,0 @@
-127.0.0.1 localhost
-::1 localhost
-192.168.100.2 conven
-192.168.100.2 ventech
-192.168.100.2 makroredvital
-192.168.100.2 sat

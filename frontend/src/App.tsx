@@ -39,32 +39,32 @@ const isGitHubDemo = typeof window !== "undefined" && window.location.hostname.i
 const DEMO_USERS = [
   {
     id: "1",
-    fullName: "Usuario Demo (Super Admin)",
+    fullName: "Administrador Principal",
     cedula: "administrador",
     role: "Super Admin",
-    gerencia: "Tecnología e Infraestructura",
+    gerencia: "Tecnología",
     unidad: "Administración General",
-    email: "demo.admin@inapymi.gob.ve",
+    email: "admin@inapymi.gob.ve",
     roleLabel: "Super Admin"
   },
   {
     id: "2",
-    fullName: "Carlos Mendoza (Técnico)",
-    cedula: "20194821",
+    fullName: "Luis Uzcategui",
+    cedula: "12832779",
     role: "Técnico IT",
-    gerencia: "Soporte en Sitio",
-    unidad: "Redes y Servidores",
-    email: "cmendoza@inapymi.gob.ve",
+    gerencia: "Tecnología",
+    unidad: "Soporte Técnico",
+    email: "luzcategui@inapymi.gob.ve",
     roleLabel: "Técnico IT"
   },
   {
     id: "3",
-    fullName: "Elena Rivas (Solicitante)",
-    cedula: "18765432",
+    fullName: "John Uzcategui",
+    cedula: "8777885",
     role: "Solicitante",
-    gerencia: "Administración",
-    unidad: "Caja Principal",
-    email: "erivas@inapymi.gob.ve",
+    gerencia: "Tecnología",
+    unidad: "Soporte Técnico",
+    email: "juzcategui@inapymi.gob.ve",
     roleLabel: "Solicitante"
   }
 ];
@@ -134,10 +134,9 @@ axios.interceptors.response.use(
       ];
     } else if (url.includes("/api/users")) {
       data = [
-        { id: "1", fullName: "Luis Uzcategui", cedula: "19842512", role: "Técnico IT", status: "Activo", gerencia: "Tecnología e Infraestructura", unidad: "Soporte Técnico", email: "tecnicouzcategui@gmail.com" },
-        { id: "2", fullName: "Carlos Mendoza", cedula: "20194821", role: "Técnico IT", status: "Activo", gerencia: "Soporte en Sitio", unidad: "Redes y Servidores", email: "cmendoza@inapymi.gob.ve" },
-        { id: "3", fullName: "Usuario Demo (GitHub Pages)", cedula: "administrador", role: "Super Admin", status: "Activo", gerencia: "Tecnología", unidad: "Demostración", email: "demo@inapymi.gob.ve" },
-        { id: "4", fullName: "Elena Rivas", cedula: "18765432", role: "Solicitante", status: "Activo", gerencia: "Administración", unidad: "Caja Principal", email: "erivas@inapymi.gob.ve" }
+        { id: "1", fullName: "Administrador Principal", cedula: "administrador", role: "Super Admin", status: "Activo", gerencia: "Tecnología", unidad: "Administración General", email: "admin@inapymi.gob.ve" },
+        { id: "2", fullName: "Luis Uzcategui", cedula: "12832779", role: "Técnico IT", status: "Activo", gerencia: "Tecnología", unidad: "Soporte Técnico", email: "luzcategui@inapymi.gob.ve" },
+        { id: "3", fullName: "John Uzcategui", cedula: "8777885", role: "Solicitante", status: "Activo", gerencia: "Tecnología", unidad: "Soporte Técnico", email: "juzcategui@inapymi.gob.ve" }
       ];
     } else if (url.includes("/api/reports")) {
       data = {

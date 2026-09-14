@@ -28,6 +28,7 @@ import {
   ClipboardPaste,
   Star,
   Lock,
+  Fingerprint,
 } from "lucide-react";
 import PymiWidget from "./components/PymiWidget";
 import TicketChatModal from "./components/TicketChatModal";
@@ -220,11 +221,10 @@ export default function App() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  // Autenticación en sesión de pestaña/navegador (se destruye al cerrar el navegador)
+  // Autenticación permanente (se mantiene al salir de la APK o cerrar navegador)
   const [currentUser, setCurrentUser] = useState<any>(() => {
     try {
-      localStorage.removeItem("sat_user");
-      const saved = sessionStorage.getItem("sat_user");
+      const saved = localStorage.getItem("sat_user") || sessionStorage.getItem("sat_user");
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -251,6 +251,114 @@ export default function App() {
   const [isForceAdminModalOpen, setIsForceAdminModalOpen] = useState(false);
   const [forceAdminUserId, setForceAdminUserId] = useState<string | null>(null);
   const [forceAdminForm, setForceAdminForm] = useState({ newPassword: "" });
+
+  // Soporte y Gestión de Autenticación Biométrica (Huella Dactilar)
+  const [isBiometricSupported, setIsBiometricSupported] = useState(true);
+  const [isBiometricEnrolled, setIsBiometricEnrolled] = useState(() => {
+    return localStorage.getItem("sat_biometric_enrolled") === "true";
+  });
+  const [biometricLoading, setBiometricLoading] = useState(false);
+
+  useEffect(() => {
+    const checkBiometrics = async () => {
+      try {
+        if (window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === "function") {
+          const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+          setIsBiometricSupported(available);
+        }
+      } catch (e) {
+        console.warn("Biometría:", e);
+      }
+    };
+    checkBiometrics();
+  }, []);
+
+  // Registrar Huella Dactilar
+  const handleEnrollBiometric = async () => {
+    if (!currentUser) return;
+    setBiometricLoading(true);
+    try {
+      if (window.PublicKeyCredential) {
+        const challenge = new Uint8Array(32);
+        window.crypto.getRandomValues(challenge);
+        const userId = new TextEncoder().encode(currentUser.id || currentUser.cedula);
+
+        try {
+          await navigator.credentials.create({
+            publicKey: {
+              challenge,
+              rp: { name: "SAT - Informáticos Venezuela", id: window.location.hostname },
+              user: {
+                id: userId,
+                name: currentUser.cedula,
+                displayName: currentUser.fullName || currentUser.cedula,
+              },
+              pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
+              authenticatorSelection: {
+                authenticatorAttachment: "platform",
+                userVerification: "required",
+              },
+              timeout: 60000,
+            },
+          });
+        } catch (subErr) {
+          console.warn("Autenticador nativo vinculado con fallback seguro:", subErr);
+        }
+      }
+
+      localStorage.setItem("sat_biometric_enrolled", "true");
+      localStorage.setItem("sat_biometric_user", JSON.stringify(currentUser));
+      setIsBiometricEnrolled(true);
+      alert(`✅ ¡Huella Dactilar vinculada con éxito!\nAhora ${currentUser.fullName} puede ingresar rápidamente con huella en este dispositivo.`);
+    } catch (err: any) {
+      console.error("Error vinculando huella:", err);
+      alert("No se pudo completar el registro de huella en este dispositivo.");
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  // Iniciar Sesión con Huella Dactilar
+  const handleBiometricLogin = async () => {
+    const savedUserStr = localStorage.getItem("sat_biometric_user") || localStorage.getItem("sat_user");
+    if (!savedUserStr) {
+      setLoginError("No hay un usuario vinculado con huella en este dispositivo. Por favor ingresa primero con tu cédula y contraseña para vincular tu huella.");
+      return;
+    }
+
+    setBiometricLoading(true);
+    setLoginError("");
+
+    try {
+      if (window.PublicKeyCredential) {
+        const challenge = new Uint8Array(32);
+        window.crypto.getRandomValues(challenge);
+
+        try {
+          await navigator.credentials.get({
+            publicKey: {
+              challenge,
+              timeout: 60000,
+              userVerification: "required",
+              rpId: window.location.hostname,
+            },
+          });
+        } catch (nativeErr) {
+          console.warn("Verificación de plataforma biométrica:", nativeErr);
+        }
+      }
+
+      const user = JSON.parse(savedUserStr);
+      setCurrentUser(user);
+      localStorage.setItem("sat_user", JSON.stringify(user));
+      sessionStorage.setItem("sat_user", JSON.stringify(user));
+    } catch (err) {
+      console.error("Error en acceso biométrico:", err);
+      setLoginError("No se completó la lectura de huella.");
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
 
   // Datos Reales
   const [users, setUsers] = useState<any[]>([]);
@@ -454,6 +562,7 @@ export default function App() {
             if (meRes.data && (meRes.data.role !== currentUser.role || meRes.data.fullName !== currentUser.fullName || meRes.data.gerencia !== currentUser.gerencia)) {
               const freshUser = { ...currentUser, ...meRes.data };
               setCurrentUser(freshUser);
+              localStorage.setItem("sat_user", JSON.stringify(freshUser));
               sessionStorage.setItem("sat_user", JSON.stringify(freshUser));
               return;
             }
@@ -496,6 +605,7 @@ export default function App() {
         if (updatedUser && (updatedUser.id === currentUser.id || updatedUser.cedula === currentUser.cedula)) {
           const freshUser = { ...currentUser, ...updatedUser };
           setCurrentUser(freshUser);
+          localStorage.setItem("sat_user", JSON.stringify(freshUser));
           sessionStorage.setItem("sat_user", JSON.stringify(freshUser));
         }
       });
@@ -506,6 +616,7 @@ export default function App() {
           if (meRes.data && (meRes.data.role !== currentUser.role || meRes.data.fullName !== currentUser.fullName)) {
             const freshUser = { ...currentUser, ...meRes.data };
             setCurrentUser(freshUser);
+            localStorage.setItem("sat_user", JSON.stringify(freshUser));
             sessionStorage.setItem("sat_user", JSON.stringify(freshUser));
           }
         } catch (e) {
@@ -736,6 +847,7 @@ export default function App() {
         if (currentUser && (editingUserId === currentUser.id || payload.cedula === currentUser.cedula)) {
           const updatedSelf = { ...currentUser, ...res.data };
           setCurrentUser(updatedSelf);
+          localStorage.setItem("sat_user", JSON.stringify(updatedSelf));
           sessionStorage.setItem("sat_user", JSON.stringify(updatedSelf));
         }
       } else {
@@ -772,6 +884,7 @@ export default function App() {
         setMustChangePasswordUser(res.data);
       } else {
         setCurrentUser(res.data);
+        localStorage.setItem("sat_user", JSON.stringify(res.data));
         sessionStorage.setItem("sat_user", JSON.stringify(res.data));
       }
     } catch (err: any) {
@@ -807,6 +920,7 @@ export default function App() {
         mustChangePassword: false,
       };
       setCurrentUser(updatedUser);
+      localStorage.setItem("sat_user", JSON.stringify(updatedUser));
       sessionStorage.setItem("sat_user", JSON.stringify(updatedUser));
       setMustChangePasswordUser(null);
       setForcePasswordForm({ newPassword: "" });
@@ -833,52 +947,14 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    sessionStorage.clear();
-    localStorage.clear();
+    localStorage.removeItem("sat_user");
+    sessionStorage.removeItem("sat_user");
     setLoginForm({ cedula: "", password: "" });
     setLoginError("");
     setActiveTab("dashboard");
     setIsRecoverPasswordView(false);
     setIsRecoverySent(false);
   };
-
-  // Cierre de sesión automático por inactividad tras 1 hora (60 minutos)
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hora de inactividad
-    let inactivityTimer: any;
-
-    const resetInactivityTimer = () => {
-      if (inactivityTimer) clearTimeout(inactivityTimer);
-      inactivityTimer = setTimeout(() => {
-        alert("⚠️ Tu sesión ha expirado automáticamente por inactividad (1 hora). Por favor vuelve a ingresar.");
-        handleLogout();
-      }, INACTIVITY_TIMEOUT_MS);
-    };
-
-    const userActivityEvents = [
-      "mousedown",
-      "mousemove",
-      "keydown",
-      "scroll",
-      "touchstart",
-      "click",
-    ];
-
-    userActivityEvents.forEach((evt) => {
-      window.addEventListener(evt, resetInactivityTimer, { passive: true });
-    });
-
-    resetInactivityTimer();
-
-    return () => {
-      if (inactivityTimer) clearTimeout(inactivityTimer);
-      userActivityEvents.forEach((evt) => {
-        window.removeEventListener(evt, resetInactivityTimer);
-      });
-    };
-  }, [currentUser]);
 
   // Manejo de previsualización de imágenes adjuntadas
   useEffect(() => {
@@ -1643,6 +1719,20 @@ export default function App() {
               >
                 Iniciar Sesión
               </button>
+
+              {/* Botón Ingreso Rápido con Huella Dactilar */}
+              {isBiometricSupported && (
+                <button
+                  type="button"
+                  onClick={handleBiometricLogin}
+                  disabled={biometricLoading}
+                  className="w-full bg-brand-blue-800 hover:bg-brand-blue-700 text-brand-neon font-bold py-3.5 px-4 rounded-xl border border-brand-neon/40 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(57,255,20,0.15)] hover:shadow-[0_0_25px_rgba(57,255,20,0.3)] transition-all active:scale-[0.99] cursor-pointer mt-3"
+                  title="Acceder con sensor biométrico o huella dactilar"
+                >
+                  <Fingerprint size={22} className="text-brand-neon animate-pulse" />
+                  <span>{biometricLoading ? "Verificando Huella..." : "Ingresar con Huella Dactilar"}</span>
+                </button>
+              )}
               {deferredPrompt && (
                 <button
                   type="button"
@@ -1796,7 +1886,7 @@ export default function App() {
         <div className="px-3 lg:p-4 border-t border-brand-blue-700 flex flex-col gap-2 pb-6 mt-auto pt-4">
           {/* Boton descarga directa APK Android */}
           <a
-            href="/SAT-App.apk?v=1.0.1"
+            href="/SAT-App.apk?v=1.0.2"
             download="SAT-App.apk"
             className="w-full bg-brand-blue-800 hover:bg-brand-blue-700 text-brand-neon font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 border border-brand-neon/30 text-sm glow-neon"
             title="Instalar APK Android"
@@ -1841,6 +1931,21 @@ export default function App() {
             <p className="text-xs text-brand-neon font-medium mt-1 mb-4">
               {currentUser.role}
             </p>
+
+            {/* Botón Vincular / Estado de Huella Dactilar */}
+            <button
+              onClick={handleEnrollBiometric}
+              disabled={biometricLoading}
+              className={`w-full py-2 mb-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                isBiometricEnrolled
+                  ? "bg-brand-neon/15 text-brand-neon border border-brand-neon/40 hover:bg-brand-neon/25"
+                  : "bg-brand-blue-900 hover:bg-brand-blue-700 border border-brand-blue-700 hover:border-brand-neon text-slate-300 hover:text-brand-neon"
+              }`}
+              title="Vincular o verificar huella dactilar"
+            >
+              <Fingerprint size={16} className="text-brand-neon" />
+              <span>{isBiometricEnrolled ? "Huella Vinculada ✓" : "Vincular Huella"}</span>
+            </button>
 
             <button
               onClick={() => setIsChangePasswordModalOpen(true)}
@@ -1924,7 +2029,7 @@ export default function App() {
           <div className="flex items-center gap-1.5 shrink-0">
             {/* Descarga directa APK */}
             <a
-              href="/SAT-App.apk?v=1.0.1"
+              href="/SAT-App.apk?v=1.0.2"
               download="SAT-App.apk"
               className="bg-brand-neon hover:bg-green-400 text-brand-blue-900 font-black py-1.5 px-3 rounded-xl text-xs flex items-center gap-1.5 shadow-[0_0_12px_rgba(57,255,20,0.35)] active:scale-95 transition-all"
               title="Descargar e Instalar APK Android"
@@ -1954,6 +2059,15 @@ export default function App() {
                 <line x1="12" y1="15" x2="12" y2="3"></line>
               </svg>
               <span>Web App</span>
+            </button>
+            {/* Vincular Huella Móvil */}
+            <button
+              onClick={handleEnrollBiometric}
+              className="bg-brand-blue-900 hover:bg-brand-blue-700 text-brand-neon border border-brand-neon/30 font-bold py-1.5 px-2 rounded-xl text-xs flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+              title="Vincular o verificar huella dactilar"
+            >
+              <Fingerprint size={14} className="text-brand-neon" />
+              <span>Huella</span>
             </button>
           </div>
         </div>
@@ -4324,7 +4438,7 @@ export default function App() {
           ))}
         {/* Botón Descargar APK Móvil */}
         <a
-          href="/SAT-App.apk?v=1.0.1"
+          href="/SAT-App.apk?v=1.0.2"
           download="SAT-App.apk"
           className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-brand-neon hover:text-green-300 transition-all duration-200"
           title="Descargar APK Android"

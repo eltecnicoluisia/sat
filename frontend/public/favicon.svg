@@ -1,9 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="20" fill="#0B132B"/>
-  <rect x="20" y="25" width="60" height="20" rx="4" fill="#1C2541" stroke="#3A506B" stroke-width="2"/>
-  <circle cx="30" cy="35" r="3" fill="#39FF14" filter="drop-shadow(0 0 2px #39FF14)"/>
-  <rect x="20" y="55" width="60" height="20" rx="4" fill="#1C2541" stroke="#3A506B" stroke-width="2"/>
-  <circle cx="30" cy="65" r="3" fill="#39FF14" filter="drop-shadow(0 0 2px #39FF14)"/>
-  <line x1="45" y1="35" x2="70" y2="35" stroke="#8E9B90" stroke-width="2" stroke-linecap="round"/>
-  <line x1="45" y1="65" x2="60" y2="65" stroke="#8E9B90" stroke-width="2" stroke-linecap="round"/>
+  <rect width="100" height="100" rx="22" fill="#0a192f"/>
+  <path d="M50 14 L80 26 V50 C80 68 50 86 50 86 C50 86 20 68 20 50 V26 Z" fill="#0e2340" stroke="#39FF14" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M50 22 L72 32 V50 C72 63 50 76 50 76 C50 76 28 63 28 50 V32 Z" fill="none" stroke="#39FF14" stroke-width="1.5" stroke-opacity="0.5" stroke-dasharray="3 3"/>
+  <text x="50" y="56" font-family="'Inter', system-ui, -apple-system, sans-serif" font-weight="900" font-size="22" fill="#39FF14" text-anchor="middle" letter-spacing="1.5">SAT</text>
 </svg>

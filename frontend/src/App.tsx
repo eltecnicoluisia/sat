@@ -1717,14 +1717,13 @@ export default function App() {
       {/* Sidebar Navigation — hidden on mobile (replaced by bottom bar) */}
       <aside className="hidden md:flex w-20 lg:w-72 border-r border-brand-blue-700 bg-brand-blue-900 flex-col justify-between transition-all duration-300 z-20 shadow-2xl h-full overflow-y-auto">
         <div>
-          <div className="flex flex-col items-center justify-center pt-10 pb-8 border-b border-brand-blue-700 text-center px-4">
-            <div className="relative mb-4">
-              <div
-                id="fallback-logo"
-                className="w-24 h-24 bg-brand-blue-700 rounded-2xl hidden items-center justify-center shadow-inner"
-              >
-                <LifeBuoy size={48} className="text-brand-neon opacity-50" />
-              </div>
+          <div className="flex flex-col items-center justify-center pt-8 pb-6 border-b border-brand-blue-700 text-center px-4">
+            <div className="relative mb-3">
+              <img
+                src="/sat-logo-192.png"
+                alt="SAT Logo"
+                className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl shadow-[0_0_20px_rgba(57,255,20,0.35)] border border-brand-neon/40 animate-logo-sat object-cover"
+              />
             </div>
             <h1 className="flex flex-col items-start lg:items-center text-center">
               <div className="text-6xl font-black mb-1 flex items-center justify-center space-x-3 tracking-[0.2em]">
@@ -1905,9 +1904,59 @@ export default function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-8 relative pb-24 md:pb-8">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-8 relative pb-28 md:pb-8">
         {/* Ambient background glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-96 bg-brand-neon/5 blur-[120px] rounded-full pointer-events-none" />
+
+        {/* Barra Superior Móvil con Logo SAT y Acceso Rápido a Instalación */}
+        <div className="md:hidden flex items-center justify-between gap-2 mb-6 p-3 bg-brand-blue-800/90 border border-brand-blue-700 rounded-2xl shadow-xl backdrop-blur-md relative z-20">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img
+              src="/sat-logo-192.png"
+              alt="SAT"
+              className="w-9 h-9 rounded-xl shadow-[0_0_12px_rgba(57,255,20,0.3)] border border-brand-neon/40 shrink-0 object-cover"
+            />
+            <div className="truncate">
+              <span className="font-black text-brand-neon text-sm tracking-wider block leading-tight">SAT</span>
+              <span className="text-[10px] text-slate-300 truncate block">Informáticos Venezuela</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Descarga directa APK */}
+            <a
+              href="/SAT-App.apk?v=1.0.1"
+              download="SAT-App.apk"
+              className="bg-brand-neon hover:bg-green-400 text-brand-blue-900 font-black py-1.5 px-3 rounded-xl text-xs flex items-center gap-1.5 shadow-[0_0_12px_rgba(57,255,20,0.35)] active:scale-95 transition-all"
+              title="Descargar e Instalar APK Android"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+              </svg>
+              <span>Instalar APK</span>
+            </a>
+
+            {/* Instalar PWA / App Web */}
+            <button
+              onClick={() => {
+                if (deferredPrompt) {
+                  handleInstallClick();
+                } else {
+                  alert("ℹ️ Si estás usando Chrome en tu teléfono, toca los 3 puntos (⋮) en la esquina superior y selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'. También puedes descargar el archivo APK con el botón verde.");
+                }
+              }}
+              className="bg-brand-blue-900 hover:bg-brand-blue-700 text-slate-200 border border-brand-blue-600 font-bold py-1.5 px-2 rounded-xl text-xs flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+              title="Instalar como Aplicación Web"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Web App</span>
+            </button>
+          </div>
+        </div>
 
         <header className="mb-10 flex items-center justify-between relative z-10">
           <div>
@@ -4273,6 +4322,20 @@ export default function App() {
               <span className="text-[10px] font-semibold leading-tight">{item.label}</span>
             </button>
           ))}
+        {/* Botón Descargar APK Móvil */}
+        <a
+          href="/SAT-App.apk?v=1.0.1"
+          download="SAT-App.apk"
+          className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-brand-neon hover:text-green-300 transition-all duration-200"
+          title="Descargar APK Android"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+          <span className="text-[10px] font-bold leading-tight">Instalar APK</span>
+        </a>
+
         {/* Logout button at the end */}
         <button
           onClick={handleLogout}

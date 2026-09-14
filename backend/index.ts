@@ -329,6 +329,31 @@ app.post('/api/login', rateLimitAuth, async (req, res) => {
   }
 });
 
+// Endpoint de Validación y Sincronización de Perfil en Tiempo Real
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const { id, cedula } = req.query;
+    if (!id && !cedula) {
+      return res.status(400).json({ error: 'Identificador requerido' });
+    }
+
+    const where: any = id ? { id: String(id) } : { cedula: String(cedula) };
+    const user = await prisma.user.findUnique({
+      where,
+      select: safeUserSelect
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error('Error fetching me:', err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 // ======================================
 // API: CATEGORÍAS
 // ======================================
@@ -580,6 +605,7 @@ app.put('/api/users/:id', async (req, res) => {
       io.emit('tickets:updated');
     }
 
+    io.emit('user:updated', user);
     io.emit('users:updated');
     res.json(user);
   } catch(err: any) {

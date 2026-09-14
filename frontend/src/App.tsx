@@ -70,11 +70,11 @@ const DEMO_USERS = [
     id: "3",
     fullName: "John Uzcategui",
     cedula: "8777885",
-    role: "Solicitante",
+    role: "Técnico IT",
     gerencia: "Tecnología",
     unidad: "Soporte Técnico",
     email: "juzcategui@inapymi.gob.ve",
-    roleLabel: "Solicitante"
+    roleLabel: "Técnico IT"
   }
 ];
 
@@ -106,13 +106,11 @@ axios.interceptors.response.use(
           });
         }
       } catch {
-        return Promise.reject({
-          response: {
-            status: 401,
-            data: { error: "Credenciales inválidas" }
-          }
-        });
+        return Promise.reject(error);
       }
+    } else if (url.includes("/api/auth/me")) {
+      const matched = DEMO_USERS.find(u => url.includes(u.cedula)) || DEMO_USERS[1];
+      return Promise.resolve({ data: matched, status: 200, statusText: "OK", headers: {}, config: error.config });
     } else if (url.includes("/api/stats")) {
       data = { 
         currentMonth: new Date().toISOString().substring(0, 7),
@@ -145,7 +143,7 @@ axios.interceptors.response.use(
       data = [
         { id: "1", fullName: "Administrador Principal", cedula: "administrador", role: "Super Admin", status: "Activo", gerencia: "Tecnología", unidad: "Administración General", email: "admin@inapymi.gob.ve" },
         { id: "2", fullName: "Luis Uzcategui", cedula: "12832779", role: "Técnico IT", status: "Activo", gerencia: "Tecnología", unidad: "Soporte Técnico", email: "luzcategui@inapymi.gob.ve" },
-        { id: "3", fullName: "John Uzcategui", cedula: "8777885", role: "Solicitante", status: "Activo", gerencia: "Tecnología", unidad: "Soporte Técnico", email: "juzcategui@inapymi.gob.ve" }
+        { id: "3", fullName: "John Uzcategui", cedula: "8777885", role: "Técnico IT", status: "Activo", gerencia: "Tecnología", unidad: "Soporte Técnico", email: "juzcategui@inapymi.gob.ve" }
       ];
     } else if (url.includes("/api/reports")) {
       data = {
@@ -414,6 +412,19 @@ export default function App() {
     if (currentUser) {
       const fetchTicketsAndCategories = async () => {
         try {
+          // Sincronizar en tiempo real el perfil del usuario con la base de datos
+          try {
+            const meRes = await axios.get(`/api/auth/me?cedula=${currentUser.cedula}`);
+            if (meRes.data && (meRes.data.role !== currentUser.role || meRes.data.fullName !== currentUser.fullName || meRes.data.gerencia !== currentUser.gerencia)) {
+              const freshUser = { ...currentUser, ...meRes.data };
+              setCurrentUser(freshUser);
+              sessionStorage.setItem("inapymi_user", JSON.stringify(freshUser));
+              return;
+            }
+          } catch (e) {
+            // Ignorar en caso de error de red
+          }
+
           const resT = await axios.get(
             `/api/tickets?role=${currentUser.role}&userId=${currentUser.id}`,
           );
@@ -443,6 +454,27 @@ export default function App() {
 
       socket.on("tickets:updated", () => {
         fetchTicketsAndCategories();
+      });
+
+      socket.on("user:updated", (updatedUser: any) => {
+        if (updatedUser && (updatedUser.id === currentUser.id || updatedUser.cedula === currentUser.cedula)) {
+          const freshUser = { ...currentUser, ...updatedUser };
+          setCurrentUser(freshUser);
+          sessionStorage.setItem("inapymi_user", JSON.stringify(freshUser));
+        }
+      });
+
+      socket.on("users:updated", async () => {
+        try {
+          const meRes = await axios.get(`/api/auth/me?cedula=${currentUser.cedula}`);
+          if (meRes.data && (meRes.data.role !== currentUser.role || meRes.data.fullName !== currentUser.fullName)) {
+            const freshUser = { ...currentUser, ...meRes.data };
+            setCurrentUser(freshUser);
+            sessionStorage.setItem("inapymi_user", JSON.stringify(freshUser));
+          }
+        } catch (e) {
+          console.error(e);
+        }
       });
 
       socket.on("ticket:created", () => {
@@ -583,7 +615,12 @@ export default function App() {
       }
 
       if (editingUserId) {
-        await axios.put(`/api/users/${editingUserId}`, payload);
+        const res = await axios.put(`/api/users/${editingUserId}`, payload);
+        if (currentUser && (editingUserId === currentUser.id || payload.cedula === currentUser.cedula)) {
+          const updatedSelf = { ...currentUser, ...res.data };
+          setCurrentUser(updatedSelf);
+          sessionStorage.setItem("inapymi_user", JSON.stringify(updatedSelf));
+        }
       } else {
         await axios.post("/api/users", payload);
       }

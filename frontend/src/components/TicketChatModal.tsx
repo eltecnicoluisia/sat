@@ -31,9 +31,9 @@ export default function TicketChatModal({
 
   const fetchMessages = async () => {
     try {
-      const res = await axios.get(`/api/tickets/${ticket.id}/messages?role=${currentUser.role}`);
+      const res = await axios.get(`/api/tickets/${ticket.id}/messages?role=${currentUser.role}&userId=${currentUser.id}`);
       setMessages(res.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error cargando mensajes del ticket:', err);
     }
   };

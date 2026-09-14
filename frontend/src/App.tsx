@@ -254,6 +254,11 @@ export default function App() {
   // Datos Reales
   const [users, setUsers] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
+  const ticketsRef = useRef<any[]>([]);
+  useEffect(() => {
+    ticketsRef.current = tickets;
+  }, [tickets]);
+
   const [categories, setCategories] = useState<any[]>([]);
   const [techRanking, setTechRanking] = useState<any[]>([]);
 
@@ -269,6 +274,28 @@ export default function App() {
     unidad: "",
   });
   const [selectedTicketForChat, setSelectedTicketForChat] = useState<any>(null);
+  const selectedTicketForChatRef = useRef<any>(null);
+  useEffect(() => {
+    selectedTicketForChatRef.current = selectedTicketForChat;
+  }, [selectedTicketForChat]);
+  const [unreadChatCounts, setUnreadChatCounts] = useState<{ [ticketId: string]: number }>({});
+  const [chatNotificationToast, setChatNotificationToast] = useState<{
+    ticketId: string;
+    senderName: string;
+    text: string;
+    correlative: number;
+    title: string;
+    ticket?: any;
+  } | null>(null);
+
+  useEffect(() => {
+    if (chatNotificationToast) {
+      const timer = setTimeout(() => {
+        setChatNotificationToast(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [chatNotificationToast]);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [ticketForm, setTicketForm] = useState({
     title: "",
@@ -571,6 +598,87 @@ export default function App() {
             `🔔 El solicitante ha calificado tu caso como: ${ticket.status}`,
           );
         }
+      });
+
+      const playChatMessageSound = () => {
+        try {
+          const ctx = getAudioCtx();
+          if (ctx.state === 'suspended') {
+            ctx.resume();
+          }
+          const now = ctx.currentTime;
+          
+          const osc1 = ctx.createOscillator();
+          const gain1 = ctx.createGain();
+          osc1.connect(gain1);
+          gain1.connect(ctx.destination);
+          osc1.type = "sine";
+          osc1.frequency.setValueAtTime(880, now);
+          gain1.gain.setValueAtTime(0.6, now);
+          gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+          osc1.start(now);
+          osc1.stop(now + 0.15);
+
+          const osc2 = ctx.createOscillator();
+          const gain2 = ctx.createGain();
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          osc2.type = "sine";
+          osc2.frequency.setValueAtTime(1318.5, now + 0.12);
+          gain2.gain.setValueAtTime(0.7, now + 0.12);
+          gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+          osc2.start(now + 0.12);
+          osc2.stop(now + 0.35);
+        } catch (e) {
+          console.error("Audio error", e);
+        }
+      };
+
+      socket.on("ticket:message", (data: { ticketId: string; message: any }) => {
+        if (!data || !data.message) return;
+        // Si el remitente es uno mismo, no alertar
+        if (data.message.userId === currentUser.id) return;
+
+        // Si es solicitante y el mensaje es interno de soporte, ignorar
+        if (currentUser.role === 'Solicitante' && data.message.isInternal) return;
+
+        // Buscar el ticket correspondiente
+        const relatedTicket = ticketsRef.current.find((tk: any) => tk.id === data.ticketId);
+        if (relatedTicket) {
+          const isAssignedTech = relatedTicket.techId === currentUser.id;
+          const isRequester = relatedTicket.userId === currentUser.id;
+          const isAdmin = currentUser.role === 'Super Admin';
+          // Si es técnico pero el caso está asignado a otro, no alertar
+          if (!isAssignedTech && !isRequester && !isAdmin) return;
+        }
+
+        // ALARMA SONORA INMEDIATA
+        playChatMessageSound();
+
+        // Si el chat de este ticket ya está abierto, no acumular no-leídos ni toast
+        if (selectedTicketForChatRef.current?.id === data.ticketId) {
+          return;
+        }
+
+        // Incrementar contador de no leídos para ese ticket
+        setUnreadChatCounts((prev) => ({
+          ...prev,
+          [data.ticketId]: (prev[data.ticketId] || 0) + 1,
+        }));
+
+        // ALARMA EN PANTALLA: Toast flotante
+        const senderName = data.message.user?.fullName || "Usuario";
+        const ticketCorrelative = relatedTicket?.correlative || 0;
+        const ticketTitle = relatedTicket?.title || "Requerimiento";
+
+        setChatNotificationToast({
+          ticketId: data.ticketId,
+          senderName,
+          text: data.message.message || "",
+          correlative: ticketCorrelative,
+          title: ticketTitle,
+          ticket: relatedTicket
+        });
       });
 
       return () => {
@@ -1570,9 +1678,18 @@ export default function App() {
     "Cerrado (No Conforme)",
     "Cancelado",
   ];
-  const activeTickets = tickets.filter(
-    (t) => !closedStatuses.includes(t.status),
-  );
+  const activeTickets = tickets
+    .filter((t) => !closedStatuses.includes(t.status))
+    .filter((t) => {
+      if (currentUser?.role === "Técnico IT") {
+        // Privacidad estricta: un técnico solo ve casos 'En Espera' o asignados a él mismo
+        return t.status === "En Espera" || t.techId === currentUser.id;
+      }
+      if (currentUser?.role === "Solicitante") {
+        return t.userId === currentUser.id;
+      }
+      return true; // Super Admin ve todos
+    });
 
   const closedTickets = tickets.filter((t) =>
     closedStatuses.includes(t.status)
@@ -1923,10 +2040,31 @@ export default function App() {
                                 </button>
                               )}
                               <button
-                                onClick={() => setSelectedTicketForChat(t)}
-                                className="inline-flex items-center gap-1.5 text-xs bg-brand-blue-700 hover:bg-brand-blue-600 text-brand-neon font-bold px-3 py-1 rounded-lg border border-brand-blue-600 transition-all shadow-sm"
+                                onClick={() => {
+                                  setUnreadChatCounts((prev) => ({ ...prev, [t.id]: 0 }));
+                                  setChatNotificationToast((prev) => prev?.ticketId === t.id ? null : prev);
+                                  setSelectedTicketForChat(t);
+                                }}
+                                className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all shadow-sm ${
+                                  unreadChatCounts[t.id]
+                                    ? "bg-amber-400 hover:bg-amber-300 text-brand-blue-900 border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.5)] animate-pulse"
+                                    : "bg-brand-blue-700 hover:bg-brand-blue-600 text-brand-neon border-brand-blue-600"
+                                }`}
                               >
-                                <MessageSquare size={13} /> Conversación y Detalle
+                                {unreadChatCounts[t.id] ? (
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                  </span>
+                                ) : (
+                                  <MessageSquare size={13} />
+                                )}
+                                <span>Conversación y Detalle</span>
+                                {unreadChatCounts[t.id] ? (
+                                  <span className="bg-red-600 text-white font-extrabold px-1.5 py-0.2 rounded-full text-[10px] ml-1">
+                                    {unreadChatCounts[t.id]}
+                                  </span>
+                                ) : null}
                               </button>
                             </div>
                           </td>
@@ -2107,7 +2245,7 @@ export default function App() {
 
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-white">
-                    Bandeja Global de Requerimientos
+                    {currentUser.role === "Super Admin" ? "Bandeja Global de Requerimientos" : "Mis Asignaciones y Casos por Atender"}
                   </h2>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
@@ -2198,11 +2336,32 @@ export default function App() {
 
                       <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0 flex-wrap">
                         <button
-                          onClick={() => setSelectedTicketForChat(t)}
-                          className="flex-1 md:flex-none bg-brand-blue-700 hover:bg-brand-blue-600 text-brand-neon border border-brand-blue-600 font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs shadow-sm"
+                          onClick={() => {
+                            setUnreadChatCounts((prev) => ({ ...prev, [t.id]: 0 }));
+                            setChatNotificationToast((prev) => prev?.ticketId === t.id ? null : prev);
+                            setSelectedTicketForChat(t);
+                          }}
+                          className={`flex-1 md:flex-none font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs shadow-sm border ${
+                            unreadChatCounts[t.id]
+                              ? "bg-amber-400 hover:bg-amber-300 text-brand-blue-900 border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.5)] animate-pulse"
+                              : "bg-brand-blue-700 hover:bg-brand-blue-600 text-brand-neon border-brand-blue-600"
+                          }`}
                           title="Abrir Chat y Notas del Requerimiento"
                         >
-                          <MessageSquare size={15} /> Chat / Notas
+                          {unreadChatCounts[t.id] ? (
+                            <span className="relative flex h-2.5 w-2.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                            </span>
+                          ) : (
+                            <MessageSquare size={15} />
+                          )}
+                          <span>Chat / Notas</span>
+                          {unreadChatCounts[t.id] ? (
+                            <span className="bg-red-600 text-white font-extrabold px-1.5 py-0.2 rounded-full text-[10px] ml-1">
+                              {unreadChatCounts[t.id]}
+                            </span>
+                          ) : null}
                         </button>
 
                         {t.status === "En Espera" &&
@@ -4160,6 +4319,48 @@ export default function App() {
                 Cerrar Ventana
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ALERTA EN PANTALLA: NOTIFICACIÓN FLOTANTE DE NUEVO MENSAJE DE CHAT */}
+      {chatNotificationToast && (
+        <div className="fixed top-5 right-5 z-[999999] max-w-sm sm:max-w-md w-[calc(100vw-2.5rem)] bg-slate-900 border-2 border-brand-neon rounded-2xl p-4 shadow-[0_0_35px_rgba(57,255,20,0.45)] animate-in slide-in-from-top-4 duration-300 backdrop-blur-lg">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 text-brand-neon font-bold text-sm">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-neon opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-neon"></span>
+              </span>
+              <span>Nuevo mensaje de {chatNotificationToast.senderName}</span>
+            </div>
+            <button
+              onClick={() => setChatNotificationToast(null)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="text-xs text-slate-300 font-semibold mt-1">
+            Caso #{chatNotificationToast.correlative} - {chatNotificationToast.title}
+          </div>
+          <div className="bg-slate-800/80 rounded-xl p-2.5 mt-2 border border-slate-700 text-sm text-white italic truncate">
+            "{chatNotificationToast.text}"
+          </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <button
+              onClick={() => {
+                const tk = chatNotificationToast.ticket || tickets.find((t) => t.id === chatNotificationToast.ticketId);
+                if (tk) {
+                  setUnreadChatCounts((prev) => ({ ...prev, [tk.id]: 0 }));
+                  setSelectedTicketForChat(tk);
+                }
+                setChatNotificationToast(null);
+              }}
+              className="bg-brand-neon hover:bg-green-400 text-brand-blue-900 font-black px-4 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-md transition-all hover:scale-105 cursor-pointer"
+            >
+              <MessageSquare size={14} /> Abrir Conversación
+            </button>
           </div>
         </div>
       )}

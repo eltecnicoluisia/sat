@@ -746,6 +746,12 @@ app.get('/api/tickets', async (req, res) => {
     
     if (role === 'Solicitante' && userId) {
       whereClause.userId = String(userId);
+    } else if (role === 'Técnico IT' && userId && !techId) {
+      // Privacidad estricta entre técnicos: solo ven casos 'En Espera' (libres) o asignados a ellos
+      whereClause.OR = [
+        { status: 'En Espera' },
+        { techId: String(userId) }
+      ];
     }
     
     if (techId) {
@@ -892,7 +898,29 @@ app.put('/api/tickets/:id/reset-password', async (req, res) => {
 app.get('/api/tickets/:id/messages', async (req, res) => {
   try {
     const { id } = req.params;
-    const { role } = req.query;
+    const { role, userId } = req.query;
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id },
+      select: { id: true, userId: true, techId: true }
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket no encontrado' });
+    }
+
+    // Privacidad estricta:
+    // Super Admin: Acceso total
+    // Solicitante: Solo el creador del requerimiento
+    // Técnico IT: Solo el técnico asignado
+    const isSuperAdmin = role === 'Super Admin';
+    const isOwner = ticket.userId === String(userId);
+    const isAssignedTech = ticket.techId === String(userId);
+    const isUnassigned = role === 'Técnico IT' && !ticket.techId;
+
+    if (!isSuperAdmin && !isOwner && !isAssignedTech && !isUnassigned) {
+      return res.status(403).json({ error: 'Acceso denegado: este chat es estrictamente privado entre el solicitante y su técnico asignado.' });
+    }
 
     const whereClause: any = { ticketId: id };
     // Si el usuario es Solicitante, no mostrar las notas internas exclusivas de técnicos
@@ -931,6 +959,24 @@ app.post('/api/tickets/:id/messages', async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id },
+      select: { id: true, userId: true, techId: true }
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket no encontrado' });
+    }
+
+    const isSuperAdmin = user.role === 'Super Admin';
+    const isOwner = ticket.userId === user.id;
+    const isAssignedTech = ticket.techId === user.id;
+    const isUnassignedTech = user.role === 'Técnico IT' && !ticket.techId;
+
+    if (!isSuperAdmin && !isOwner && !isAssignedTech && !isUnassignedTech) {
+      return res.status(403).json({ error: 'Acceso denegado: no puedes publicar en este chat.' });
     }
 
     // Solo técnicos y super admin pueden publicar notas internas

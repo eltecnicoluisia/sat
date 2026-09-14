@@ -24,6 +24,7 @@ export default function TicketChatModal({
   const [isSending, setIsSending] = useState(false);
   const [copiedAnydesk, setCopiedAnydesk] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
+  const [showFullResolutionImage, setShowFullResolutionImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isTechOrAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Técnico IT';
@@ -178,6 +179,53 @@ export default function TicketChatModal({
             >
               <div className="relative max-w-4xl max-h-[90vh]">
                 <img src={ticket.imageUrl} alt="Adjunto" className="max-w-full max-h-[85vh] rounded-xl object-contain" />
+                <p className="text-center text-xs text-slate-400 mt-2">Haz clic en cualquier lugar para cerrar</p>
+              </div>
+            </div>
+          )}
+
+          {/* Informe de Solución y Evidencia del Técnico */}
+          {(ticket.resolutionNotes || ticket.resolutionImageUrl) && (
+            <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <div className="flex items-center gap-2 text-xs text-emerald-400 font-bold">
+                  <Check size={16} /> Solución Registrada por {ticket.tech?.fullName || 'Técnico IT'}
+                </div>
+                {ticket.rating && (
+                  <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full font-bold">
+                    ⭐ {ticket.rating}/5 estrellas {ticket.status.includes('Conforme') ? '(Conforme)' : ''}
+                  </span>
+                )}
+              </div>
+              {ticket.resolutionNotes && (
+                <p className="text-emerald-100 text-sm whitespace-pre-wrap">{ticket.resolutionNotes}</p>
+              )}
+              {ticket.resolutionImageUrl && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => setShowFullResolutionImage(true)}
+                    className="inline-flex items-center gap-2 text-xs font-bold text-emerald-300 bg-emerald-900/60 border border-emerald-500/50 px-3 py-1.5 rounded-lg hover:border-emerald-300 transition-colors"
+                  >
+                    <ImageIcon size={14} /> Ver Evidencia de Solución
+                  </button>
+                </div>
+              )}
+              {ticket.ratingFeedback && (
+                <div className="mt-2.5 pt-2 border-t border-emerald-500/20 text-xs text-slate-300 italic">
+                  <strong>Opinión del solicitante:</strong> "{ticket.ratingFeedback}"
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Modal de Evidencia de Solución Completa */}
+          {showFullResolutionImage && ticket.resolutionImageUrl && (
+            <div
+              onClick={() => setShowFullResolutionImage(false)}
+              className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 cursor-pointer"
+            >
+              <div className="relative max-w-4xl max-h-[90vh]">
+                <img src={ticket.resolutionImageUrl} alt="Evidencia de Solución" className="max-w-full max-h-[85vh] rounded-xl object-contain" />
                 <p className="text-center text-xs text-slate-400 mt-2">Haz clic en cualquier lugar para cerrar</p>
               </div>
             </div>

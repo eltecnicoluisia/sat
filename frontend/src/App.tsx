@@ -26,6 +26,7 @@ import {
   UploadCloud,
   Image as ImageIcon,
   ClipboardPaste,
+  Star,
 } from "lucide-react";
 import PymiWidget from "./components/PymiWidget";
 import TicketChatModal from "./components/TicketChatModal";
@@ -277,6 +278,25 @@ export default function App() {
   const [ticketFormError, setTicketFormError] = useState<string | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const ticketFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Estados para Cierre Técnico con Informe y Evidencia
+  const [isCloseTicketModalOpen, setIsCloseTicketModalOpen] = useState(false);
+  const [closingTicket, setClosingTicket] = useState<any>(null);
+  const [resolutionNotes, setResolutionNotes] = useState("");
+  const [resolutionImage, setResolutionImage] = useState<File | null>(null);
+  const [resolutionImagePreview, setResolutionImagePreview] = useState<string | null>(null);
+  const [isSubmittingResolution, setIsSubmittingResolution] = useState(false);
+  const [resolutionError, setResolutionError] = useState<string | null>(null);
+  const resolutionFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Estados para Calificación y Conformidad del Solicitante
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [ratingTicket, setRatingTicket] = useState<any>(null);
+  const [ratingStars, setRatingStars] = useState<number>(5);
+  const [ratingFeedback, setRatingFeedback] = useState("");
+  const [ratingApproved, setRatingApproved] = useState<boolean>(true);
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+
   const [categoryForm, setCategoryForm] = useState({ title: "", requiresDescription: false, requiresImage: false });
 
   // State hooks for Bot Rules
@@ -753,6 +773,53 @@ export default function App() {
     };
   }, [isTicketModalOpen]);
 
+  // Manejo de previsualización para la evidencia de solución técnica
+  useEffect(() => {
+    if (!resolutionImage) {
+      setResolutionImagePreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(resolutionImage);
+    setResolutionImagePreview(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [resolutionImage]);
+
+  // Captura con Ctrl + V para el modal de Cierre Técnico
+  useEffect(() => {
+    if (!isCloseTicketModalOpen) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf("image") !== -1) {
+          const blob = item.getAsFile();
+          if (blob) {
+            e.preventDefault();
+            const ext = blob.type.split("/")[1] || "png";
+            const file = new File(
+              [blob],
+              `resolucion_${Date.now()}.${ext}`,
+              { type: blob.type }
+            );
+            setResolutionImage(file);
+            setResolutionError(null);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => {
+      window.removeEventListener("paste", handlePaste);
+    };
+  }, [isCloseTicketModalOpen]);
+
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     setTicketFormError(null);
@@ -1012,23 +1079,93 @@ export default function App() {
     }
   };
 
-  const handleResolveTicket = async (ticketId: String) => {
+  // Gestión de Cierre Técnico (con informe y evidencia)
+  const handleOpenCloseModal = (ticket: any) => {
+    setClosingTicket(ticket);
+    setResolutionNotes("");
+    setResolutionImage(null);
+    setResolutionImagePreview(null);
+    setResolutionError(null);
+    setIsCloseTicketModalOpen(true);
+  };
+
+  const handleCloseTicketSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!closingTicket) return;
+
+    if (!resolutionNotes.trim()) {
+      setResolutionError("Debe ingresar un informe técnico explicando el trabajo o solución realizada.");
+      return;
+    }
+
     try {
-      await axios.put(`/api/tickets/${ticketId}/resolve`);
+      setIsSubmittingResolution(true);
+      const formData = new FormData();
+      formData.append("resolutionNotes", resolutionNotes.trim());
+      if (resolutionImage) {
+        formData.append("resolutionImage", resolutionImage);
+      }
+
+      await axios.put(`/api/tickets/${closingTicket.id}/resolve`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      setIsCloseTicketModalOpen(false);
+      setClosingTicket(null);
+      setResolutionNotes("");
+      setResolutionImage(null);
+      setResolutionImagePreview(null);
+      setResolutionError(null);
     } catch (err) {
-      alert("Error al resolver ticket");
+      console.error(err);
+      setResolutionError("Error al registrar el cierre técnico en el servidor.");
+    } finally {
+      setIsSubmittingResolution(false);
     }
   };
 
-  const handleConformity = async (ticketId: String, approved: boolean) => {
+  // Gestión de Calificación del Solicitante
+  const handleOpenRatingModal = (ticket: any) => {
+    setRatingTicket(ticket);
+    setRatingStars(5);
+    setRatingFeedback("");
+    setRatingApproved(true);
+    setIsRatingModalOpen(true);
+  };
+
+  const handleSubmitRating = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ratingTicket) return;
+
     try {
-      await axios.put(
-        `/api/tickets/${ticketId}/conformity`,
-        { approved },
-      );
+      setIsSubmittingRating(true);
+      await axios.put(`/api/tickets/${ratingTicket.id}/conformity`, {
+        approved: ratingApproved,
+        rating: ratingStars,
+        ratingFeedback: ratingFeedback.trim(),
+      });
+      setIsRatingModalOpen(false);
+      setRatingTicket(null);
     } catch (err) {
-      alert("Error al aplicar conformidad");
+      console.error(err);
+      alert("Error al registrar su calificación.");
+    } finally {
+      setIsSubmittingRating(false);
     }
+  };
+
+  // Tickets pendientes de calificación por parte del solicitante actual
+  const pendingRatingTickets = currentUser?.role === "Solicitante"
+    ? tickets.filter((t) => t.userId === currentUser.id && t.status === "Resuelto (Esperando Conformidad)")
+    : [];
+
+  const handleOpenNewTicket = () => {
+    if (pendingRatingTickets.length > 0) {
+      handleOpenRatingModal(pendingRatingTickets[0]);
+      return;
+    }
+    setTicketFormError(null);
+    setIsTicketModalOpen(true);
   };
 
   if (!currentUser) {
@@ -1637,12 +1774,43 @@ export default function App() {
               // VISTA DEL SOLICITANTE
               // =========================
               <>
+                {/* BANNER DE ALERTA: REQUERIMIENTOS RESUELTOS PENDIENTES POR CALIFICAR */}
+                {pendingRatingTickets.length > 0 && (
+                  <div className="mb-6 bg-gradient-to-r from-amber-500/20 via-brand-blue-800 to-amber-500/20 border-2 border-amber-500/50 rounded-2xl p-4 sm:p-5 shadow-[0_0_25px_rgba(245,158,11,0.2)] animate-pulse-slow">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-300 shrink-0">
+                          <AlertCircle size={26} />
+                        </div>
+                        <div>
+                          <h4 className="text-white font-bold text-base sm:text-lg flex items-center gap-2">
+                            <span>¡Tienes requerimientos resueltos pendientes por calificar!</span>
+                            <span className="bg-amber-500 text-brand-blue-900 text-xs px-2 py-0.5 rounded-full font-extrabold">
+                              {pendingRatingTickets.length}
+                            </span>
+                          </h4>
+                          <p className="text-slate-300 text-xs sm:text-sm mt-1">
+                            El personal técnico ha atendido y registrado la solución de tu caso. Es indispensable calificar la atención recibida para concluir el ciclo y poder solicitar nuevos requerimientos.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleOpenRatingModal(pendingRatingTickets[0])}
+                        className="w-full sm:w-auto bg-amber-400 hover:bg-amber-300 text-brand-blue-900 font-black px-5 py-2.5 rounded-xl text-xs sm:text-sm transition-all shadow-lg hover:scale-105 shrink-0 flex items-center justify-center gap-2"
+                      >
+                        <Star size={18} className="fill-brand-blue-900" />
+                        Calificar Caso #{pendingRatingTickets[0].correlative || 0}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-white">
                     Mis Requerimientos
                   </h2>
                   <button
-                    onClick={() => setIsTicketModalOpen(true)}
+                    onClick={handleOpenNewTicket}
                     className="bg-brand-neon text-brand-blue-900 font-bold py-2 px-4 rounded-lg flex items-center hover:scale-105 transition-transform shadow-[0_0_15px_rgba(57,255,20,0.3)]"
                   >
                     <Plus size={20} className="mr-2" /> Nuevo Requerimiento
@@ -1747,18 +1915,13 @@ export default function App() {
                             </span>
                             {t.status ===
                               "Resuelto (Esperando Conformidad)" && (
-                              <div className="flex gap-2 justify-end mt-2">
+                              <div className="flex justify-end mt-2">
                                 <button
-                                  onClick={() => handleConformity(t.id, true)}
-                                  className="bg-brand-neon text-brand-blue-900 px-2 py-1 rounded text-xs font-bold hover:bg-green-400"
+                                  onClick={() => handleOpenRatingModal(t)}
+                                  className="bg-amber-400 hover:bg-amber-300 text-brand-blue-900 px-3 py-1.5 rounded-lg text-xs font-black transition-all shadow-[0_0_12px_rgba(251,191,36,0.4)] hover:scale-105 flex items-center gap-1.5 animate-pulse"
                                 >
-                                  ✔️ Conforme
-                                </button>
-                                <button
-                                  onClick={() => handleConformity(t.id, false)}
-                                  className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold hover:bg-red-600"
-                                >
-                                  ❌ No Conforme
+                                  <Star size={14} className="fill-brand-blue-900" />
+                                  Calificar Atención
                                 </button>
                               </div>
                             )}
@@ -2035,9 +2198,10 @@ export default function App() {
                                 LIBERAR CASO
                               </button>
                               <button
-                                onClick={() => handleResolveTicket(t.id)}
-                                className="flex-1 md:flex-none bg-brand-blue-700 hover:bg-brand-olive text-white font-bold py-2 px-6 rounded-xl transition-all border border-brand-blue-600 hover:border-brand-olive hover:shadow-[0_0_15px_rgba(152,251,152,0.3)] text-xs"
+                                onClick={() => handleOpenCloseModal(t)}
+                                className="flex-1 md:flex-none bg-brand-blue-700 hover:bg-brand-olive text-white font-bold py-2 px-6 rounded-xl transition-all border border-brand-blue-600 hover:border-brand-olive hover:shadow-[0_0_15px_rgba(152,251,152,0.3)] text-xs flex items-center justify-center gap-1.5"
                               >
+                                <CheckCircle2 size={15} />
                                 CERRAR CASO
                               </button>
                             </div>
@@ -3491,6 +3655,366 @@ export default function App() {
               >
                 Aplicar Cambio
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CIERRE TÉCNICO CON INFORME Y EVIDENCIA */}
+      {isCloseTicketModalOpen && closingTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue-900/80 backdrop-blur-sm animate-fade-in p-4">
+          <div className="bg-brand-blue-800 border border-brand-blue-700 rounded-2xl p-6 sm:p-8 w-full max-w-lg shadow-2xl relative max-h-[92vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setIsCloseTicketModalOpen(false);
+                setClosingTicket(null);
+                setResolutionError(null);
+              }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-brand-blue-700/50 transition-colors"
+            >
+              <X size={22} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                <CheckCircle2 size={22} />
+              </div>
+              <div>
+                <h3 className="text-xl sm:text-2xl font-bold text-white">
+                  Cierre Técnico de Caso #{closingTicket.correlative || 0}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Registre el informe de la solución aplicada y la evidencia del trabajo.
+                </p>
+              </div>
+            </div>
+
+            {/* Ficha Resumen del Requerimiento */}
+            <div className="bg-brand-blue-900/60 border border-brand-blue-700/70 rounded-xl p-3 mb-5 text-xs text-slate-300 space-y-1">
+              <div className="flex items-center justify-between font-bold text-white text-sm">
+                <span>{closingTicket.title}</span>
+                <span className="text-brand-neon">{closingTicket.category?.title || 'General'}</span>
+              </div>
+              <div className="text-slate-400">
+                Solicitante: <strong className="text-slate-200">{closingTicket.user?.fullName}</strong> ({closingTicket.user?.gerencia || 'S/G'})
+              </div>
+            </div>
+
+            <form onSubmit={handleCloseTicketSubmit} className="space-y-4">
+              {/* INFORME DE SOLUCIÓN */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>Informe Técnico / Explicación del Trabajo</span>
+                  <span className="text-emerald-400 text-xs font-bold">* Obligatorio</span>
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  placeholder="Detalle el diagnóstico realizado, solución técnica implementada, piezas o cables reemplazados, pruebas ejecutadas..."
+                  value={resolutionNotes}
+                  onChange={(e) => {
+                    setResolutionNotes(e.target.value);
+                    setResolutionError(null);
+                  }}
+                  className={`w-full bg-brand-blue-900 border rounded-xl p-3 text-white focus:outline-none focus:border-brand-neon resize-none transition-colors ${
+                    resolutionError && !resolutionNotes.trim()
+                      ? "border-red-500 ring-2 ring-red-500/30"
+                      : "border-brand-blue-700"
+                  }`}
+                />
+              </div>
+
+              {/* EVIDENCIA FOTOGRÁFICA CON SOPORTE CTRL + V */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5 flex justify-between items-center">
+                  <span>Evidencia Fotográfica del Trabajo</span>
+                  <span className="text-[11px] text-brand-neon font-medium flex items-center gap-1">
+                    <ClipboardPaste size={12} /> Soporta Ctrl + V
+                  </span>
+                </label>
+
+                <input
+                  ref={resolutionFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setResolutionImage(e.target.files[0]);
+                      setResolutionError(null);
+                    }
+                  }}
+                  className="hidden"
+                />
+
+                {resolutionImage ? (
+                  <div className="bg-brand-blue-900/90 border border-brand-neon/50 rounded-xl p-3 flex items-center justify-between gap-3 shadow-md">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      {resolutionImagePreview ? (
+                        <img
+                          src={resolutionImagePreview}
+                          alt="Evidencia Solución"
+                          className="w-14 h-14 object-cover rounded-lg border border-brand-neon/40 shrink-0 bg-black/40"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg bg-brand-blue-800 flex items-center justify-center shrink-0 text-brand-neon">
+                          <ImageIcon size={24} />
+                        </div>
+                      )}
+                      <div className="overflow-hidden">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-semibold text-white truncate max-w-[200px]">
+                            {resolutionImage.name}
+                          </p>
+                          <span className="bg-brand-neon/20 text-brand-neon text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">
+                            Evidencia Adjunta
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {(resolutionImage.size / 1024).toFixed(1)} KB &bull; Lista para enviar
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResolutionImage(null);
+                        if (resolutionFileInputRef.current) resolutionFileInputRef.current.value = "";
+                      }}
+                      className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                      title="Quitar imagen"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => resolutionFileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        setResolutionImage(e.dataTransfer.files[0]);
+                        setResolutionError(null);
+                      }
+                    }}
+                    className="border-2 border-dashed border-brand-blue-700 hover:border-brand-neon/60 bg-brand-blue-900/40 hover:bg-brand-blue-900/80 rounded-xl p-4 text-center cursor-pointer transition-all group"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <div className="p-2 rounded-full bg-brand-blue-800 text-brand-neon group-hover:scale-110 transition-transform">
+                        <UploadCloud size={20} />
+                      </div>
+                      <p className="text-xs font-semibold text-slate-200">
+                        Haz clic para examinar o presiona <span className="text-brand-neon font-bold">Ctrl + V</span>
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Pega captura de pantalla de resolución o carga archivo fotográfico
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* MENSAJE DE ERROR INLINE */}
+              {resolutionError && (
+                <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-3 text-red-200 text-xs flex items-start gap-2.5 shadow-md">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <span className="font-medium">{resolutionError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCloseTicketModalOpen(false);
+                    setClosingTicket(null);
+                  }}
+                  className="flex-1 bg-brand-blue-700 hover:bg-brand-blue-600 text-white font-bold py-3 rounded-xl transition-all text-xs"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingResolution}
+                  className="flex-2 bg-brand-neon hover:bg-green-400 text-brand-blue-900 font-extrabold py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(46,204,113,0.3)] hover:shadow-[0_0_20px_rgba(46,204,113,0.5)] active:scale-[0.99] text-xs flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  {isSubmittingResolution ? "Registrando..." : "Registrar Cierre Técnico"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CALIFICACIÓN DEL SOLICITANTE */}
+      {isRatingModalOpen && ratingTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue-900/85 backdrop-blur-sm animate-fade-in p-4">
+          <div className="bg-brand-blue-800 border border-amber-500/40 rounded-2xl p-6 sm:p-8 w-full max-w-lg shadow-[0_0_40px_rgba(245,158,11,0.2)] relative max-h-[92vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setIsRatingModalOpen(false);
+                setRatingTicket(null);
+              }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-brand-blue-700/50 transition-colors"
+            >
+              <X size={22} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400">
+                <Star size={24} className="fill-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-xl sm:text-2xl font-black text-white">
+                  Calificar Atención del Caso #{ratingTicket.correlative || 0}
+                </h3>
+                <p className="text-xs text-slate-300">
+                  El técnico ha finalizado el trabajo. Por favor califica el servicio recibido.
+                </p>
+              </div>
+            </div>
+
+            {/* Resumen del Informe Técnico registrado */}
+            <div className="bg-brand-blue-900/80 border border-brand-blue-700 rounded-xl p-4 mb-5 space-y-2.5 shadow-sm">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-white text-sm">{ratingTicket.title}</span>
+                <span className="text-brand-neon bg-brand-neon/10 px-2 py-0.5 rounded font-bold">
+                  {ratingTicket.tech?.fullName || 'Técnico IT'}
+                </span>
+              </div>
+
+              {ratingTicket.resolutionNotes && (
+                <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-lg p-3 text-xs text-emerald-200">
+                  <span className="font-bold block text-emerald-400 mb-1">📋 Informe de Solución del Técnico:</span>
+                  <p className="whitespace-pre-wrap">{ratingTicket.resolutionNotes}</p>
+                </div>
+              )}
+
+              {ratingTicket.resolutionImageUrl && (
+                <div className="pt-1">
+                  <span className="font-bold block text-xs text-slate-300 mb-1">📸 Evidencia de la Solución:</span>
+                  <a
+                    href={ratingTicket.resolutionImageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block relative group rounded-lg overflow-hidden border border-brand-blue-600"
+                  >
+                    <img
+                      src={ratingTicket.resolutionImageUrl}
+                      alt="Evidencia"
+                      className="max-h-36 rounded-lg object-cover group-hover:scale-105 transition-transform"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+                      Clic para ampliar
+                    </div>
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleSubmitRating} className="space-y-5">
+              {/* EVALUACIÓN DE ESTRELLAS */}
+              <div className="bg-brand-blue-900/50 border border-brand-blue-700/60 rounded-xl p-4 text-center">
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                  Nivel de Satisfacción del Servicio
+                </label>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRatingStars(star)}
+                      className="p-1.5 transition-transform hover:scale-125 focus:outline-none"
+                    >
+                      <Star
+                        size={32}
+                        className={`${
+                          star <= ratingStars
+                            ? "text-amber-400 fill-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]"
+                            : "text-slate-600"
+                        } transition-colors`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs font-semibold text-amber-300">
+                  {ratingStars === 5 && "⭐⭐⭐⭐⭐ Excelente Atención"}
+                  {ratingStars === 4 && "⭐⭐⭐⭐ Muy Buena Atención"}
+                  {ratingStars === 3 && "⭐⭐⭐ Atención Aceptable"}
+                  {ratingStars === 2 && "⭐⭐ Regular / Deficiente"}
+                  {ratingStars === 1 && "⭐ Muy Insatisfecho"}
+                </p>
+              </div>
+
+              {/* CONFORMIDAD DEL SERVICIO */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                  ¿El problema quedó debidamente solventado?
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRatingApproved(true)}
+                    className={`p-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                      ratingApproved
+                        ? "bg-brand-neon/20 border-brand-neon text-white shadow-[0_0_15px_rgba(46,204,113,0.3)] ring-1 ring-brand-neon"
+                        : "bg-brand-blue-900 border-brand-blue-700 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span className="text-base">✔️</span>
+                    <span>Conforme (Aprobado)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRatingApproved(false)}
+                    className={`p-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                      !ratingApproved
+                        ? "bg-red-500/20 border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.3)] ring-1 ring-red-500"
+                        : "bg-brand-blue-900 border-brand-blue-700 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span className="text-base">❌</span>
+                    <span>No Conforme (Persiste)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* COMENTARIO / FEEDBACK ADICIONAL */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5 flex justify-between">
+                  <span>Comentarios sobre la atención recibida</span>
+                  <span className="text-slate-500 text-xs">(Opcional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Escriba aquí sus observaciones o agradecimiento al técnico..."
+                  value={ratingFeedback}
+                  onChange={(e) => setRatingFeedback(e.target.value)}
+                  className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-xl p-3 text-white focus:outline-none focus:border-brand-neon resize-none text-xs transition-colors"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRatingModalOpen(false);
+                    setRatingTicket(null);
+                  }}
+                  className="flex-1 bg-brand-blue-700 hover:bg-brand-blue-600 text-white font-bold py-3 rounded-xl transition-all text-xs"
+                >
+                  Más tarde
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingRating}
+                  className="flex-2 bg-amber-400 hover:bg-amber-300 text-brand-blue-900 font-black py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(251,191,36,0.4)] active:scale-[0.99] text-xs flex items-center justify-center gap-2"
+                >
+                  <Star size={16} className="fill-brand-blue-900" />
+                  {isSubmittingRating ? "Enviando..." : "Enviar Calificación"}
+                </button>
+              </div>
             </form>
           </div>
         </div>

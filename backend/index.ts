@@ -758,33 +758,61 @@ app.put('/api/tickets/:id/release', async (req, res) => {
   }
 });
 
-app.put('/api/tickets/:id/resolve', async (req, res) => {
+app.put('/api/tickets/:id/resolve', upload.single('resolutionImage'), async (req, res) => {
   try {
-    const ticket = await prisma.ticket.update({
+    const { resolutionNotes } = req.body;
+    const resolutionImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+    const updateData: any = {
+      status: 'Resuelto (Esperando Conformidad)',
+      closedAt: new Date(),
+    };
+    if (resolutionNotes && resolutionNotes.trim()) {
+      updateData.resolutionNotes = resolutionNotes.trim();
+    }
+    if (resolutionImageUrl) {
+      updateData.resolutionImageUrl = resolutionImageUrl;
+    }
+
+    const ticket = await (prisma as any).ticket.update({
       where: { id: req.params.id },
-      data: { status: 'Resuelto (Esperando Conformidad)' },
+      data: updateData,
       include: ticketInclude
     });
     io.emit('ticket:resolved', ticket);
     io.emit('tickets:updated');
     res.json(ticket);
   } catch(err) {
+    console.error('Error al resolver ticket:', err);
     res.status(500).json({ error: 'Error al resolver' });
   }
 });
 
 app.put('/api/tickets/:id/conformity', async (req, res) => {
   try {
-    const { approved } = req.body;
-    const ticket = await prisma.ticket.update({
+    const { approved, rating, ratingFeedback } = req.body;
+    const updateData: any = {
+      status: approved ? 'Cerrado (Conforme)' : 'Cerrado (No Conforme)',
+    };
+    if (rating !== undefined && rating !== null) {
+      updateData.rating = Number(rating);
+    } else {
+      updateData.rating = approved ? 5 : 1;
+    }
+    if (ratingFeedback && String(ratingFeedback).trim()) {
+      updateData.ratingFeedback = String(ratingFeedback).trim();
+    }
+
+    const ticket = await (prisma as any).ticket.update({
       where: { id: req.params.id },
-      data: { status: approved ? 'Cerrado (Conforme)' : 'Cerrado (No Conforme)' },
+      data: updateData,
       include: ticketInclude
     });
     io.emit('ticket:conformity', ticket);
     io.emit('tickets:updated');
     res.json(ticket);
   } catch(err) {
+    console.error('Error al dar conformidad:', err);
     res.status(500).json({ error: 'Error al dar conformidad' });
   }
 });
@@ -920,12 +948,13 @@ app.get('/api/tickets/export/csv', async (req, res) => {
       : tickets;
 
     // Generar CSV con BOM UTF-8 para apertura perfecta en Excel
-    let csv = '\uFEFFNro;Título;Prioridad;Estado;Solicitante;Cédula;Gerencia;Unidad;Técnico Asignado;AnyDesk ID;Fecha Creación\r\n';
+    let csv = '\uFEFFNro;Título;Prioridad;Estado;Solicitante;Cédula;Gerencia;Unidad;Técnico Asignado;AnyDesk ID;Informe Solución;Calificación;Fecha Creación\r\n';
     
     for (const t of filtered) {
       const escape = (val: string | null | undefined) => `"${(val || '').replace(/"/g, '""')}"`;
       const dateStr = new Date(t.createdAt).toLocaleString('es-VE', { hour12: true });
-      csv += `${t.correlative};${escape(t.title)};${escape((t as any).priority || 'Media')};${escape(t.status)};${escape(t.user?.fullName)};${escape(t.user?.cedula)};${escape(t.user?.gerencia)};${escape(t.user?.unidad)};${escape(t.tech?.fullName || 'No asignado')};${escape((t as any).remoteId || 'N/A')};${escape(dateStr)}\r\n`;
+      const ratingStr = (t as any).rating ? `${(t as any).rating}/5` : 'Pendiente';
+      csv += `${t.correlative};${escape(t.title)};${escape((t as any).priority || 'Media')};${escape(t.status)};${escape(t.user?.fullName)};${escape(t.user?.cedula)};${escape(t.user?.gerencia)};${escape(t.user?.unidad)};${escape(t.tech?.fullName || 'No asignado')};${escape((t as any).remoteId || 'N/A')};${escape((t as any).resolutionNotes || 'Sin informe')};${escape(ratingStr)};${escape(dateStr)}\r\n`;
     }
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

@@ -14,6 +14,9 @@ export default defineConfig({
       devOptions: {
         enabled: true
       },
+      workbox: {
+        navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /^\/socket\.io/]
+      },
       manifest: {
         name: 'SAT Helpdesk INAPYMI',
         short_name: 'SAT',

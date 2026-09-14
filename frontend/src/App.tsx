@@ -44,6 +44,11 @@ const getAudioCtx = () => {
 
 // Detección de entorno: GitHub Pages (Demo estático) vs Servidor Local (Backend real con BD)
 const isGitHubDemo = typeof window !== "undefined" && window.location.hostname.includes("github.io");
+const isCapacitorNative = typeof window !== "undefined" && window.location.protocol === "capacitor:";
+
+if (isCapacitorNative) {
+  axios.defaults.baseURL = "https://sat.informaticosvenezuela.com";
+}
 
 const DEMO_USERS = [
   {
@@ -295,6 +300,9 @@ export default function App() {
   const [ratingApproved, setRatingApproved] = useState<boolean>(true);
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
+  // Estado para Modal / Ventana Emergente de Visualización de Evidencias Fotográficas
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
+
   const [categoryForm, setCategoryForm] = useState({ title: "", requiresDescription: false, requiresImage: false });
 
   // State hooks for Bot Rules
@@ -449,7 +457,7 @@ export default function App() {
       fetchTicketsAndCategories();
 
       // Configurar Socket.io
-      const socket = io("/");
+      const socket = io(isCapacitorNative ? "https://sat.informaticosvenezuela.com" : "/");
       socketRef.current = socket;
 
       socket.on("tickets:updated", () => {
@@ -1906,9 +1914,13 @@ export default function App() {
                             </div>
                             <div className="flex items-center gap-2 mt-2 flex-wrap">
                               {t.imageUrl && (
-                                <a href={t.imageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded transition-colors">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewImage({ url: t.imageUrl, title: `Evidencia - Requerimiento #${t.correlative || 0}: ${t.title}` })}
+                                  className="inline-flex items-center text-xs bg-slate-700 hover:bg-slate-600 text-white px-2.5 py-1 rounded-lg transition-colors cursor-pointer border border-slate-600 shadow-sm"
+                                >
                                   <span className="mr-1">📷</span> Ver Evidencia
-                                </a>
+                                </button>
                               )}
                               <button
                                 onClick={() => setSelectedTicketForChat(t)}
@@ -2150,9 +2162,13 @@ export default function App() {
                         </p>
                         {t.imageUrl && (
                           <div className="mt-2">
-                            <a href={t.imageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg text-sm font-bold text-white transition-colors shadow-sm">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage({ url: t.imageUrl, title: `Evidencia del Requerimiento - #${t.correlative || 0} ${t.title}` })}
+                              className="inline-flex items-center bg-blue-600 hover:bg-blue-500 px-3.5 py-1.5 rounded-lg text-sm font-bold text-white transition-all shadow-md hover:scale-105 cursor-pointer border border-blue-400/40"
+                            >
                               <span className="mr-1.5">📷</span> Ver Evidencia del Requerimiento
-                            </a>
+                            </button>
                           </div>
                         )}
 
@@ -3931,11 +3947,10 @@ export default function App() {
               {ratingTicket.resolutionImageUrl && (
                 <div className="pt-1">
                   <span className="font-bold block text-xs text-slate-300 mb-1">📸 Evidencia de la Solución:</span>
-                  <a
-                    href={ratingTicket.resolutionImageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-block relative group rounded-lg overflow-hidden border border-brand-blue-600"
+                  <button
+                    type="button"
+                    onClick={() => setPreviewImage({ url: ratingTicket.resolutionImageUrl, title: `Evidencia de Solución - Requerimiento #${ratingTicket.correlative || 0}` })}
+                    className="inline-block relative group rounded-lg overflow-hidden border border-brand-blue-600 cursor-pointer text-left"
                   >
                     <img
                       src={ratingTicket.resolutionImageUrl}
@@ -3945,7 +3960,7 @@ export default function App() {
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
                       Clic para ampliar
                     </div>
-                  </a>
+                  </button>
                 </div>
               )}
             </div>
@@ -4095,6 +4110,59 @@ export default function App() {
           <span className="text-[10px] font-semibold leading-tight">Salir</span>
         </button>
       </nav>
+
+      {/* MODAL / VENTANA EMERGENTE: VISUALIZACIÓN DE EVIDENCIA FOTOGRÁFICA */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative max-w-5xl w-full max-h-[95vh] bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3 sm:p-4 bg-slate-800 border-b border-slate-700 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className="text-xl shrink-0">📸</span>
+                <h3 className="text-white font-bold text-sm sm:text-base truncate">{previewImage.title}</h3>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={previewImage.url}
+                  download
+                  className="bg-brand-blue-700 hover:bg-brand-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors border border-brand-blue-500 shadow-sm"
+                >
+                  <Download size={14} /> <span className="hidden sm:inline">Descargar</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage(null)}
+                  className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg transition-colors border border-slate-600 cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="p-2 sm:p-4 flex items-center justify-center overflow-auto max-h-[calc(90vh-100px)] bg-black/50">
+              <img
+                src={previewImage.url}
+                alt="Evidencia"
+                className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl border border-slate-800"
+              />
+            </div>
+            <div className="p-2.5 bg-slate-800/80 border-t border-slate-700 flex items-center justify-between text-xs text-slate-400 px-4">
+              <span>Haz clic fuera de la imagen o en la cruz para cerrar</span>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="text-brand-neon hover:underline font-bold cursor-pointer"
+              >
+                Cerrar Ventana
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
     </div>

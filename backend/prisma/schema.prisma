@@ -24,6 +24,7 @@ model User {
 
   tickets        Ticket[] @relation("UserTickets")
   handledTickets Ticket[] @relation("TechTickets")
+  messages       TicketMessage[]
 }
 
 model Category {
@@ -38,9 +39,11 @@ model Ticket {
   id           String   @id @default(uuid())
   correlative  Int      @default(0)
   title        String
-  status       String   @default("En Espera") // En Espera, En Proceso, Cerrado
+  priority     String   @default("Media") // Baja, Media, Alta, Urgente
+  status       String   @default("En Espera") // En Espera, En Proceso, Cerrado (Conforme), etc.
   description  String
   imageUrl     String?
+  remoteId     String?  // Código AnyDesk o RustDesk
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   
@@ -52,6 +55,19 @@ model Ticket {
   
   categoryId  String?
   category    Category? @relation(fields: [categoryId], references: [id])
+
+  messages    TicketMessage[]
+}
+
+model TicketMessage {
+  id         String   @id @default(uuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message    String
+  isInternal Boolean  @default(false) // true = solo visible para técnicos y super admin
+  createdAt  DateTime @default(now())
 }
 
 model BotRule {

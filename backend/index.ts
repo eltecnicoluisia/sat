@@ -675,7 +675,7 @@ app.post('/api/recover-password', rateLimitAuth, async (req, res) => {
 
 app.post('/api/tickets', upload.single('image'), async (req, res) => {
   try {
-    const { title, description, categoryId, userId } = req.body;
+    const { title, description, categoryId, userId, priority, remoteId } = req.body;
     
     const titleErr = checkGibberish(title);
     if (titleErr) return res.status(400).json({ error: titleErr + " en el Título" });
@@ -696,7 +696,9 @@ app.post('/api/tickets', upload.single('image'), async (req, res) => {
         description, 
         categoryId, 
         userId, 
-        imageUrl 
+        imageUrl,
+        priority: priority || 'Media',
+        remoteId: remoteId ? String(remoteId).trim() : null
       },
       include: ticketInclude
     });
@@ -826,6 +828,112 @@ app.put('/api/tickets/:id/reset-password', async (req, res) => {
     res.json({ message: 'Contraseña restablecida con éxito', ticket: updatedTicket });
   } catch(err) {
     res.status(500).json({ error: 'Error al restablecer contraseña' });
+  }
+});
+
+// ======================================
+// API: MENSAJES Y CHAT DE TICKETS
+// ======================================
+
+app.get('/api/tickets/:id/messages', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.query;
+
+    const whereClause: any = { ticketId: id };
+    // Si el usuario es Solicitante, no mostrar las notas internas exclusivas de técnicos
+    if (role === 'Solicitante') {
+      whereClause.isInternal = false;
+    }
+
+    const messages = await (prisma as any).ticketMessage.findMany({
+      where: whereClause,
+      include: {
+        user: { select: safeUserSelect }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    res.json(messages);
+  } catch(err) {
+    console.error("Error fetching ticket messages:", err);
+    res.status(500).json({ error: 'Error obteniendo mensajes del ticket' });
+  }
+});
+
+app.post('/api/tickets/:id/messages', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message, userId, isInternal } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'El mensaje no puede estar vacío' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: safeUserSelect
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Solo técnicos y super admin pueden publicar notas internas
+    const internalFlag = (user.role === 'Super Admin' || user.role === 'Técnico IT') && isInternal === true;
+
+    const newMsg = await (prisma as any).ticketMessage.create({
+      data: {
+        ticketId: id,
+        userId: user.id,
+        message: message.trim(),
+        isInternal: internalFlag
+      },
+      include: {
+        user: { select: safeUserSelect }
+      }
+    });
+
+    // Emitir mensaje por WebSockets en tiempo real
+    io.emit('ticket:message', { ticketId: id, message: newMsg });
+
+    res.json(newMsg);
+  } catch(err) {
+    console.error("Error creating ticket message:", err);
+    res.status(500).json({ error: 'Error enviando mensaje' });
+  }
+});
+
+// Exportación a CSV compatible con Excel
+app.get('/api/tickets/export/csv', async (req, res) => {
+  try {
+    const { month } = req.query;
+    let whereClause: any = {};
+    const tickets = await prisma.ticket.findMany({
+      where: whereClause,
+      include: ticketInclude,
+      orderBy: { correlative: 'desc' }
+    });
+
+    const filtered = month 
+      ? tickets.filter(t => t.createdAt.toISOString().substring(0, 7) === String(month))
+      : tickets;
+
+    // Generar CSV con BOM UTF-8 para apertura perfecta en Excel
+    let csv = '\uFEFFNro;Título;Prioridad;Estado;Solicitante;Cédula;Gerencia;Unidad;Técnico Asignado;AnyDesk ID;Fecha Creación\r\n';
+    
+    for (const t of filtered) {
+      const escape = (val: string | null | undefined) => `"${(val || '').replace(/"/g, '""')}"`;
+      const dateStr = new Date(t.createdAt).toLocaleString('es-VE', { hour12: true });
+      csv += `${t.correlative};${escape(t.title)};${escape((t as any).priority || 'Media')};${escape(t.status)};${escape(t.user?.fullName)};${escape(t.user?.cedula)};${escape(t.user?.gerencia)};${escape(t.user?.unidad)};${escape(t.tech?.fullName || 'No asignado')};${escape((t as any).remoteId || 'N/A')};${escape(dateStr)}\r\n`;
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="Reporte_SAT_${month || 'historico'}.csv"`);
+    res.send(csv);
+  } catch(err) {
+    console.error("Error exporting tickets to CSV:", err);
+    res.status(500).json({ error: 'Error exportando tickets' });
   }
 });
 

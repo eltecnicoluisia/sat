@@ -19,8 +19,13 @@ import {
   History,
   XCircle,
   Sparkles,
+  Download,
+  Printer,
+  MessageSquare,
+  Monitor,
 } from "lucide-react";
 import PymiWidget from "./components/PymiWidget";
+import TicketChatModal from "./components/TicketChatModal";
 
 let globalAudioCtx: any = null;
 const getAudioCtx = () => {
@@ -256,12 +261,15 @@ export default function App() {
     gerencia: "",
     unidad: "",
   });
+  const [selectedTicketForChat, setSelectedTicketForChat] = useState<any>(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [ticketForm, setTicketForm] = useState({
     title: "",
     description: "",
     categoryId: "",
     image: null as File | null,
+    priority: "Media",
+    remoteId: "",
   });
   const [categoryForm, setCategoryForm] = useState({ title: "", requiresDescription: false, requiresImage: false });
 
@@ -755,6 +763,10 @@ export default function App() {
       formData.append("description", ticketForm.description.trim() || "Generado automáticamente según el tipo de requerimiento.");
       formData.append("userId", currentUser.id);
       formData.append("categoryId", ticketForm.categoryId);
+      formData.append("priority", ticketForm.priority || "Media");
+      if (ticketForm.remoteId.trim()) {
+        formData.append("remoteId", ticketForm.remoteId.trim());
+      }
       if (ticketForm.image) {
         formData.append("image", ticketForm.image);
       }
@@ -763,7 +775,7 @@ export default function App() {
         headers: { "Content-Type": "multipart/form-data" }
       });
       setIsTicketModalOpen(false);
-      setTicketForm({ title: "", description: "", categoryId: "", image: null });
+      setTicketForm({ title: "", description: "", categoryId: "", image: null, priority: "Media", remoteId: "" });
     } catch (err) {
       alert("Error al crear el requerimiento");
     }
@@ -1596,17 +1608,43 @@ export default function App() {
                           className="hover:bg-brand-blue-700/20 transition-colors"
                         >
                           <td className="p-4">
-                            <div className="font-bold text-slate-200">
-                              #{t.correlative || 0} - {t.title}
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="font-bold text-slate-200">
+                                #{t.correlative || 0} - {t.title}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                t.priority === 'Urgente'
+                                  ? 'bg-red-500/20 text-red-400 border-red-500/40 glow-neon'
+                                  : t.priority === 'Alta'
+                                    ? 'bg-orange-500/20 text-orange-400 border-orange-500/40'
+                                    : t.priority === 'Baja'
+                                      ? 'bg-slate-500/20 text-slate-300 border-slate-500/40'
+                                      : 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                              }`}>
+                                {t.priority || 'Media'}
+                              </span>
+                              {t.remoteId && (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-brand-neon bg-brand-blue-900/80 px-2 py-0.5 rounded border border-brand-neon/30">
+                                  <Monitor size={11} /> AnyDesk: {t.remoteId}
+                                </span>
+                              )}
                             </div>
                             <div className="text-base font-bold text-brand-neon mt-2">
                               {t.description}
                             </div>
-                            {t.imageUrl && (
-                              <a href={t.imageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded mt-2 transition-colors">
-                                <span className="mr-1">📷</span> Ver Evidencia Adjunta
-                              </a>
-                            )}
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                              {t.imageUrl && (
+                                <a href={t.imageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded transition-colors">
+                                  <span className="mr-1">📷</span> Ver Evidencia
+                                </a>
+                              )}
+                              <button
+                                onClick={() => setSelectedTicketForChat(t)}
+                                className="inline-flex items-center gap-1.5 text-xs bg-brand-blue-700 hover:bg-brand-blue-600 text-brand-neon font-bold px-3 py-1 rounded-lg border border-brand-blue-600 transition-all shadow-sm"
+                              >
+                                <MessageSquare size={13} /> Conversación y Detalle
+                              </button>
+                            </div>
                           </td>
                           <td className="p-4 text-slate-300 text-sm">
                             {new Date(t.createdAt).toLocaleDateString()}
@@ -1805,7 +1843,7 @@ export default function App() {
                       className={`bg-brand-blue-800 border border-brand-blue-700 p-5 rounded-2xl shadow-lg flex flex-col md:flex-row gap-4 items-start md:items-center justify-between`}
                     >
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                               t.status === "En Espera"
@@ -1819,7 +1857,23 @@ export default function App() {
                           >
                             {t.status}
                           </span>
-                          <span className="text-sm font-medium text-slate-300">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            t.priority === 'Urgente'
+                              ? 'bg-red-500/20 text-red-400 border-red-500/40 glow-neon'
+                              : t.priority === 'Alta'
+                                ? 'bg-orange-500/20 text-orange-400 border-orange-500/40'
+                                : t.priority === 'Baja'
+                                  ? 'bg-slate-500/20 text-slate-300 border-slate-500/40'
+                                  : 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                          }`}>
+                            {t.priority || 'Media'}
+                          </span>
+                          {t.remoteId && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-brand-neon bg-brand-blue-900 px-2 py-0.5 rounded border border-brand-neon/40">
+                              <Monitor size={12} /> AnyDesk: {t.remoteId}
+                            </span>
+                          )}
+                          <span className="text-xs font-medium text-slate-400">
                             {new Date(t.createdAt).toLocaleString('es-VE', { hour12: true })}
                           </span>
                         </div>
@@ -1835,7 +1889,7 @@ export default function App() {
                           </div>
                         )}
 
-                        <div className="mt-3 flex gap-4 text-sm">
+                        <div className="mt-3 flex gap-4 text-sm flex-wrap">
                           <div className="flex flex-col text-slate-300">
                             <div className="flex items-center">
                               <span className="text-slate-500 mr-1">De:</span>{" "}
@@ -1859,7 +1913,15 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
+                      <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0 flex-wrap">
+                        <button
+                          onClick={() => setSelectedTicketForChat(t)}
+                          className="flex-1 md:flex-none bg-brand-blue-700 hover:bg-brand-blue-600 text-brand-neon border border-brand-blue-600 font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs shadow-sm"
+                          title="Abrir Chat y Notas del Requerimiento"
+                        >
+                          <MessageSquare size={15} /> Chat / Notas
+                        </button>
+
                         {t.status === "En Espera" &&
                           currentUser.role === "Super Admin" && (
                             <div className="flex gap-2 items-center">
@@ -1901,13 +1963,13 @@ export default function App() {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleReleaseTicket(t.id)}
-                                className="flex-1 md:flex-none bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 border border-orange-500/30 hover:border-orange-500 font-bold py-2 px-4 rounded-xl transition-all uppercase"
+                                className="flex-1 md:flex-none bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 border border-orange-500/30 hover:border-orange-500 font-bold py-2 px-4 rounded-xl transition-all uppercase text-xs"
                               >
                                 LIBERAR CASO
                               </button>
                               <button
                                 onClick={() => handleResolveTicket(t.id)}
-                                className="flex-1 md:flex-none bg-brand-blue-700 hover:bg-brand-olive text-white font-bold py-2 px-6 rounded-xl transition-all border border-brand-blue-600 hover:border-brand-olive hover:shadow-[0_0_15px_rgba(152,251,152,0.3)]"
+                                className="flex-1 md:flex-none bg-brand-blue-700 hover:bg-brand-olive text-white font-bold py-2 px-6 rounded-xl transition-all border border-brand-blue-600 hover:border-brand-olive hover:shadow-[0_0_15px_rgba(152,251,152,0.3)] text-xs"
                               >
                                 CERRAR CASO
                               </button>
@@ -2370,14 +2432,35 @@ export default function App() {
               <h2 className="text-xl md:text-2xl font-bold text-white">
                 {currentUser?.role === "Super Admin" ? "Auditoría de Requerimientos" : currentUser?.role === "Técnico IT" ? "Mi Historial de Soportes" : "Mis Solicitudes Anteriores"}
               </h2>
-              <div className="flex items-center space-x-2 md:space-x-4 bg-brand-blue-800 p-2 rounded-xl border border-brand-blue-700 w-full md:w-auto">
-                <span className="text-slate-300 font-semibold text-sm md:text-base whitespace-nowrap">Mes:</span>
-                <input 
-                  type="month" 
-                  value={historyMonth} 
-                  onChange={(e) => setHistoryMonth(e.target.value)} 
-                  className="bg-brand-blue-900 border border-brand-blue-600 text-white rounded p-1 w-full md:w-auto"
-                />
+              <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+                <div className="flex items-center space-x-2 md:space-x-4 bg-brand-blue-800 p-2 rounded-xl border border-brand-blue-700">
+                  <span className="text-slate-300 font-semibold text-sm md:text-base whitespace-nowrap">Mes:</span>
+                  <input 
+                    type="month" 
+                    value={historyMonth} 
+                    onChange={(e) => setHistoryMonth(e.target.value)} 
+                    className="bg-brand-blue-900 border border-brand-blue-600 text-white rounded p-1 w-full md:w-auto"
+                  />
+                </div>
+                {currentUser?.role === 'Super Admin' && (
+                  <>
+                    <a
+                      href={`/api/tickets/export/csv?month=${historyMonth}`}
+                      download={`Reporte_SAT_${historyMonth}.csv`}
+                      className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                      title="Descargar tabla en formato Excel"
+                    >
+                      <Download size={15} /> Exportar Excel
+                    </a>
+                    <button
+                      onClick={() => window.print()}
+                      className="bg-brand-blue-700 hover:bg-brand-blue-600 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5 transition-colors border border-brand-blue-600 shadow-sm"
+                      title="Imprimir informe oficial en PDF"
+                    >
+                      <Printer size={15} /> Imprimir PDF
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -2410,7 +2493,7 @@ export default function App() {
                       <th className="p-4 font-semibold">Requerimiento</th>
                       <th className="p-4 font-semibold">Solicitante</th>
                       <th className="p-4 font-semibold">Técnico</th>
-                      <th className="p-4 font-semibold text-right">Estado y Fecha</th>
+                      <th className="p-4 font-semibold text-right">Acción y Fecha</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-brand-blue-700">
@@ -2424,11 +2507,30 @@ export default function App() {
                   {historyData.map((t: any) => (
                     <tr key={t.id} className="hover:bg-brand-blue-700/20 transition-colors">
                       <td className="p-4">
-                        <div className="font-bold text-slate-200">#{t.correlative || 0} - {t.title}</div>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-bold text-slate-200">#{t.correlative || 0} - {t.title}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            t.priority === 'Urgente'
+                              ? 'bg-red-500/20 text-red-400 border-red-500/40'
+                              : t.priority === 'Alta'
+                                ? 'bg-orange-500/20 text-orange-400 border-orange-500/40'
+                                : t.priority === 'Baja'
+                                  ? 'bg-slate-500/20 text-slate-300 border-slate-500/40'
+                                  : 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                          }`}>
+                            {t.priority || 'Media'}
+                          </span>
+                          {t.remoteId && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-brand-neon bg-brand-blue-900 px-2 py-0.5 rounded border border-brand-neon/40">
+                              <Monitor size={11} /> AnyDesk: {t.remoteId}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-base font-bold text-brand-neon mt-2 max-w-md">{t.description}</div>
                       </td>
                       <td className="p-4 text-slate-300">
                         <span className="font-black text-lg text-white">{t.user?.fullName}</span> <br />
+                        {t.user?.gerencia && <span className="text-xs text-slate-400">{t.user.gerencia}</span>}
                       </td>
                       <td className="p-4 text-slate-300">
                         {t.tech ? t.tech.fullName : <span className="text-slate-500 italic">No asignado</span>}
@@ -2437,9 +2539,15 @@ export default function App() {
                         <span className="bg-slate-700 text-slate-300 px-2 py-1 rounded-md text-xs font-bold inline-block mb-1">
                           {t.status}
                         </span>
-                        <div className="text-sm font-medium text-slate-400 mt-1">
+                        <div className="text-xs font-medium text-slate-400 mt-1 mb-2">
                           {new Date(t.createdAt).toLocaleString('es-VE', { hour12: true })}
                         </div>
+                        <button
+                          onClick={() => setSelectedTicketForChat(t)}
+                          className="inline-flex items-center gap-1 text-xs bg-brand-blue-700 hover:bg-brand-blue-600 text-brand-neon px-2.5 py-1 rounded-lg border border-brand-blue-600 font-semibold transition-colors"
+                        >
+                          <MessageSquare size={13} /> Chat / Ficha
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -2468,40 +2576,57 @@ export default function App() {
                 <Plus size={20} className="mr-2" /> Nueva Categoría
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {categories.length === 0 && (
-                <div className="col-span-full text-center text-slate-400 py-10 bg-brand-blue-800 rounded-2xl border border-brand-blue-700">
+                <div className="col-span-full text-center text-slate-400 py-8 bg-brand-blue-800 rounded-xl border border-brand-blue-700">
                   No hay tipos de requerimiento creados.
                 </div>
               )}
               {categories.map((c) => (
                 <div
                   key={c.id}
-                  className="bg-brand-blue-800 border border-brand-blue-700 p-6 rounded-2xl shadow-xl flex flex-col items-center text-center transition-transform hover:-translate-y-1 relative group"
+                  className="bg-brand-blue-800 border border-brand-blue-700 hover:border-brand-neon/50 p-3.5 rounded-xl shadow-md flex flex-col items-center text-center transition-all hover:-translate-y-0.5 relative group"
                 >
-                  <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => handleEditCategory(c)}
-                      className="text-slate-400 hover:text-brand-neon transition-colors"
+                      className="p-1 rounded text-slate-400 hover:text-brand-neon hover:bg-brand-blue-900 transition-colors"
+                      title="Editar Categoría"
                     >
-                      <Edit2 size={18} />
+                      <Edit2 size={13} />
                     </button>
                     <button
                       onClick={() => handleDeleteCategory(c.id)}
-                      className="text-slate-400 hover:text-red-400 transition-colors"
+                      className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-brand-blue-900 transition-colors"
+                      title="Eliminar Categoría"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
-                  <div className="w-16 h-16 rounded-full bg-brand-blue-900 border border-brand-neon flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(57,255,20,0.2)]">
-                    <Settings className="text-brand-neon" size={30} />
+
+                  <div className="w-9 h-9 rounded-lg bg-brand-blue-900 border border-brand-neon/40 flex items-center justify-center mb-2 shadow-[0_0_10px_rgba(57,255,20,0.15)]">
+                    <Settings className="text-brand-neon" size={18} />
                   </div>
-                  <h3 className="text-lg font-bold text-white mb-2">
+
+                  <h3 className="text-xs md:text-sm font-bold text-white mb-1.5 line-clamp-2 min-h-[2.2rem] flex items-center justify-center">
                     {c.title}
                   </h3>
-                  <span className="text-xs text-brand-neon font-medium px-2 py-1 bg-brand-neon/10 rounded-full border border-brand-neon/20">
-                    Activa
-                  </span>
+
+                  <div className="flex items-center gap-1 flex-wrap justify-center mt-auto">
+                    <span className="text-[10px] text-brand-neon font-medium px-2 py-0.5 bg-brand-neon/10 rounded-full border border-brand-neon/20">
+                      Activa
+                    </span>
+                    {c.requiresDescription && (
+                      <span className="text-[9px] text-blue-300 font-medium px-1.5 py-0.5 bg-blue-500/10 rounded border border-blue-500/20" title="Requiere descripción">
+                        Texto
+                      </span>
+                    )}
+                    {c.requiresImage && (
+                      <span className="text-[9px] text-amber-300 font-medium px-1.5 py-0.5 bg-amber-500/10 rounded border border-amber-500/20" title="Requiere foto">
+                        Foto
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -2584,6 +2709,24 @@ export default function App() {
 
       {/* Modales Compartidos */}
       
+      {/* MODAL: Conversación y Detalle del Requerimiento */}
+      {selectedTicketForChat && (
+        <TicketChatModal
+          ticket={selectedTicketForChat}
+          currentUser={currentUser}
+          socket={socketRef.current}
+          onClose={() => setSelectedTicketForChat(null)}
+          onTicketUpdated={() => {
+            if (currentUser) {
+              axios
+                .get(`/api/tickets?role=${currentUser.role}&userId=${currentUser.id}`)
+                .then((res) => setTickets(res.data))
+                .catch((e) => console.error(e));
+            }
+          }}
+        />
+      )}
+
       {/* MODAL: Regla de Bot */}
       {isBotRuleModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue-900/80 backdrop-blur-sm animate-fade-in">
@@ -2957,8 +3100,39 @@ export default function App() {
                       setTicketForm({ ...ticketForm, image: e.target.files[0] });
                     }
                   }}
-                  className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-2 text-white focus:outline-none focus:border-brand-neon file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-neon file:text-brand-blue-900 hover:file:bg-green-400 mb-6"
+                  className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-2 text-white focus:outline-none focus:border-brand-neon file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-neon file:text-brand-blue-900 hover:file:bg-green-400 mb-4"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">
+                    Nivel de Prioridad
+                  </label>
+                  <select
+                    value={ticketForm.priority}
+                    onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value })}
+                    className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-neon text-sm"
+                  >
+                    <option value="Baja">Baja (Consultas)</option>
+                    <option value="Media">Media (Normal)</option>
+                    <option value="Alta">Alta (Operativa)</option>
+                    <option value="Urgente">Urgente (Crítica)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">
+                    AnyDesk / RustDesk <span className="text-slate-500">(Opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. 1 928 472 819"
+                    value={ticketForm.remoteId}
+                    onChange={(e) => setTicketForm({ ...ticketForm, remoteId: e.target.value })}
+                    className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-neon text-sm font-mono"
+                  />
+                </div>
               </div>
 
               <button

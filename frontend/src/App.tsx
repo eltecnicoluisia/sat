@@ -1733,16 +1733,39 @@ export default function App() {
                   <span>{biometricLoading ? "Verificando Huella..." : "Ingresar con Huella Dactilar"}</span>
                 </button>
               )}
-              {deferredPrompt && (
+              {/* Sección de Descarga e Instalación en Login */}
+              <div className="pt-4 border-t border-brand-blue-700/60 mt-4 flex flex-col gap-2.5">
+                {/* Botón Descargar APK Android */}
+                <a
+                  href="/SAT-App.apk?v=1.0.2"
+                  download="SAT-App.apk"
+                  className="w-full bg-brand-neon hover:bg-green-400 text-brand-blue-900 font-black py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2.5 shadow-[0_0_20px_rgba(57,255,20,0.3)] active:scale-[0.99] text-sm cursor-pointer"
+                  title="Descargar e Instalar APK para celulares Android"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                  </svg>
+                  <span>Descargar App Android (.APK)</span>
+                </a>
+
+                {/* Botón Instalar Aplicación Web / PC */}
                 <button
                   type="button"
-                  onClick={handleInstallClick}
-                  className="w-full mt-4 bg-brand-blue-700 hover:bg-brand-blue-600 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 border border-brand-neon/30"
+                  onClick={() => {
+                    if (deferredPrompt) {
+                      handleInstallClick();
+                    } else {
+                      alert("ℹ️ Si estás en tu teléfono, puedes descargar el archivo APK arriba o usar la opción 'Instalar aplicación' en el menú de tu navegador Chrome (⋮). En PC, pulsa el icono de instalar en la barra de direcciones.");
+                    }
+                  }}
+                  className="w-full bg-brand-blue-800 hover:bg-brand-blue-700 text-slate-200 border border-brand-blue-600 hover:border-brand-neon/40 font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-xs cursor-pointer"
+                  title="Instalar como Aplicación Web en el Navegador o PC"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
+                    width="16"
+                    height="16"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -1754,9 +1777,9 @@ export default function App() {
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                   </svg>
-                  Instalar Programa
+                  <span>Instalar como App Web / PC</span>
                 </button>
-              )}
+              </div>
             </form>
           )}
         </div>

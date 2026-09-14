@@ -16,11 +16,15 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+const ALLOWED_IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const safeExt = ALLOWED_IMAGE_EXTS.includes(ext) ? ext : '.png';
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    cb(null, uniqueSuffix + safeExt);
   }
 });
 
@@ -28,10 +32,11 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (file.mimetype.startsWith('image/') && ALLOWED_IMAGE_EXTS.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error('Sólo se permiten imágenes'));
+      cb(new Error('Sólo se permiten archivos de imagen válidos (.jpg, .jpeg, .png, .webp, .gif)'));
     }
   }
 });
@@ -86,6 +91,35 @@ const validatePassword = (password: string): string | null => {
 };
 
 const prisma = new PrismaClient();
+
+// Campos seguros de usuario (nunca exponer hash de contraseña)
+const safeUserSelect = {
+  id: true,
+  cedula: true,
+  fullName: true,
+  email: true,
+  gerencia: true,
+  unidad: true,
+  role: true,
+  status: true,
+  mustChangePassword: true,
+  createdAt: true,
+  updatedAt: true
+};
+
+const excludePassword = <T extends Record<string, any>>(user: T | null): any => {
+  if (!user) return user;
+  const { password, ...safeUser } = user;
+  return safeUser;
+};
+
+// Inclusión estándar segura en tickets
+const ticketInclude = {
+  user: { select: safeUserSelect },
+  tech: { select: safeUserSelect },
+  category: true
+};
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -96,6 +130,17 @@ const io = new Server(server, {
 
 // Middleware de Rate Limiting en memoria contra ataques de fuerza bruta
 const authAttempts = new Map<string, { count: number; resetTime: number }>();
+
+// Limpieza periódica de IPs expiradas para prevenir fugas de memoria
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of authAttempts.entries()) {
+    if (record.resetTime <= now) {
+      authAttempts.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
+
 const rateLimitAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
   const now = Date.now();
@@ -115,7 +160,8 @@ const rateLimitAuth = (req: express.Request, res: express.Response, next: expres
 };
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', (req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   next();
@@ -227,7 +273,8 @@ app.post('/api/users', async (req, res) => {
         gerencia,
         unidad,
         password: hashedPassword
-      }
+      },
+      select: safeUserSelect
     });
     // Emitimos evento Socket para actualizar dashboards si es necesario
     io.emit('users:updated', user);
@@ -275,8 +322,8 @@ app.post('/api/login', rateLimitAuth, async (req, res) => {
       return res.status(403).json({ error: 'Usuario inhabilitado. Contacte al administrador.' });
     }
 
-    // Retornamos el objeto usuario, incluyendo el flag mustChangePassword
-    res.json(user);
+    // Retornamos el objeto usuario sanitizado (sin hash de contraseña)
+    res.json(excludePassword(user));
   } catch(err) {
     res.status(500).json({ error: 'Error del servidor' });
   }
@@ -348,7 +395,10 @@ app.delete('/api/categories/:id', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
   try {
-    const users = await prisma.user.findMany();
+    const users = await prisma.user.findMany({
+      select: safeUserSelect,
+      orderBy: { createdAt: 'desc' }
+    });
     res.json(users);
   } catch(err) {
     res.status(500).json({ error: 'Error obteniendo usuarios' });
@@ -383,8 +433,15 @@ app.get('/api/reports', async (req, res) => {
     const { month } = req.query; // YYYY-MM
     const targetMonth = month ? String(month) : new Date().toISOString().substring(0, 7);
     
-    const allTickets = await prisma.ticket.findMany({ include: { tech: true } });
-    const techs = await prisma.user.findMany({ where: { role: 'Técnico IT' } });
+    const allTickets = await prisma.ticket.findMany({ 
+      include: { 
+        tech: { select: safeUserSelect } 
+      } 
+    });
+    const techs = await prisma.user.findMany({ 
+      where: { role: 'Técnico IT' },
+      select: safeUserSelect 
+    });
 
     // Filtrar tickets por mes exacto
     const monthTickets = allTickets.filter(t => t.createdAt.toISOString().substring(0, 7) === targetMonth);
@@ -425,7 +482,7 @@ app.put('/api/tickets/:id/take', async (req, res) => {
     const ticket = await prisma.ticket.update({
       where: { id: req.params.id },
       data: { techId, status: 'En Proceso' },
-      include: { user: true, tech: true }
+      include: ticketInclude
     });
     io.emit('ticket:taken', ticket);
     io.emit('tickets:updated');
@@ -442,7 +499,7 @@ app.put('/api/tickets/:id/assign', async (req, res) => {
     const ticket = await prisma.ticket.update({
       where: { id: req.params.id },
       data: { techId, status: 'En Proceso' },
-      include: { user: true, tech: true }
+      include: ticketInclude
     });
     io.emit('ticket:assigned', ticket);
     io.emit('tickets:updated');
@@ -458,7 +515,7 @@ app.put('/api/tickets/:id/cancel', async (req, res) => {
     const ticket = await prisma.ticket.update({
       where: { id: req.params.id },
       data: { status: 'Cancelado' },
-      include: { user: true, tech: true }
+      include: ticketInclude
     });
     io.emit('ticket:cancelled', ticket);
     io.emit('tickets:updated');
@@ -473,7 +530,8 @@ app.put('/api/users/:id/toggle-status', async (req, res) => {
     const { status } = req.body;
     const user = await prisma.user.update({
       where: { id: req.params.id },
-      data: { status }
+      data: { status },
+      select: safeUserSelect
     });
     io.emit('users:updated');
     res.json(user);
@@ -485,7 +543,8 @@ app.put('/api/users/:id/toggle-status', async (req, res) => {
 app.delete('/api/users/:id', async (req, res) => {
   try {
     const user = await prisma.user.delete({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
+      select: safeUserSelect
     });
     io.emit('users:updated');
     res.json(user);
@@ -508,7 +567,8 @@ app.put('/api/users/:id', async (req, res) => {
     }
     const user = await prisma.user.update({
       where: { id: req.params.id },
-      data
+      data,
+      select: safeUserSelect
     });
     io.emit('users:updated');
     res.json(user);
@@ -620,8 +680,15 @@ app.post('/api/tickets', upload.single('image'), async (req, res) => {
     const nextCorrelative = lastTicket ? lastTicket.correlative + 1 : 1;
 
     const ticket = await prisma.ticket.create({
-      data: { correlative: nextCorrelative,
-        title, description, categoryId, userId, imageUrl }
+      data: { 
+        correlative: nextCorrelative,
+        title, 
+        description, 
+        categoryId, 
+        userId, 
+        imageUrl 
+      },
+      include: ticketInclude
     });
     io.emit('ticket:created', ticket);
     io.emit('tickets:updated');
@@ -649,7 +716,7 @@ app.get('/api/tickets', async (req, res) => {
 
     const tickets = await prisma.ticket.findMany({
       where: whereClause,
-      include: { user: true, tech: true },
+      include: ticketInclude,
       orderBy: { correlative: 'desc' }
     });
     
@@ -665,27 +732,12 @@ app.get('/api/tickets', async (req, res) => {
   }
 });
 
-app.put('/api/tickets/:id/take', async (req, res) => {
-  try {
-    const { techId } = req.body;
-    const ticket = await prisma.ticket.update({
-      where: { id: req.params.id },
-      data: { status: 'En Proceso', techId },
-      include: { user: true, tech: true }
-    });
-    io.emit('tickets:updated');
-    res.json(ticket);
-  } catch(err) {
-    res.status(500).json({ error: 'Error al tomar el ticket' });
-  }
-});
-
 app.put('/api/tickets/:id/release', async (req, res) => {
   try {
     const ticket = await prisma.ticket.update({
       where: { id: req.params.id },
       data: { status: 'En Espera', techId: null },
-      include: { user: true, tech: true }
+      include: ticketInclude
     });
     io.emit('tickets:updated');
     res.json(ticket);
@@ -699,7 +751,7 @@ app.put('/api/tickets/:id/resolve', async (req, res) => {
     const ticket = await prisma.ticket.update({
       where: { id: req.params.id },
       data: { status: 'Resuelto (Esperando Conformidad)' },
-      include: { user: true, tech: true }
+      include: ticketInclude
     });
     io.emit('ticket:resolved', ticket);
     io.emit('tickets:updated');
@@ -715,7 +767,7 @@ app.put('/api/tickets/:id/conformity', async (req, res) => {
     const ticket = await prisma.ticket.update({
       where: { id: req.params.id },
       data: { status: approved ? 'Cerrado (Conforme)' : 'Cerrado (No Conforme)' },
-      include: { user: true, tech: true }
+      include: ticketInclude
     });
     io.emit('ticket:conformity', ticket);
     io.emit('tickets:updated');
@@ -730,7 +782,7 @@ app.put('/api/tickets/:id/reset-password', async (req, res) => {
     const { id } = req.params;
     const ticket = await prisma.ticket.findUnique({
       where: { id },
-      include: { user: true }
+      include: { user: { select: safeUserSelect } }
     });
     
     if (!ticket || !ticket.user) {
@@ -754,12 +806,12 @@ app.put('/api/tickets/:id/reset-password', async (req, res) => {
       data: {
         status: 'Cerrado (Conforme)',
       },
-      include: { user: true, tech: true }
+      include: ticketInclude
     });
 
     io.emit('ticket:conformity', updatedTicket);
     io.emit('tickets:updated');
-    io.emit('users-updated');
+    io.emit('users:updated');
 
     res.json({ message: 'Contraseña restablecida con éxito', ticket: updatedTicket });
   } catch(err) {

@@ -2366,17 +2366,17 @@ export default function App() {
 
         {activeTab === "history" && (
           <div className="relative z-10 animate-fade-in">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+              <h2 className="text-xl md:text-2xl font-bold text-white">
                 {currentUser?.role === "Super Admin" ? "Auditoría de Requerimientos" : currentUser?.role === "Técnico IT" ? "Mi Historial de Soportes" : "Mis Solicitudes Anteriores"}
               </h2>
-              <div className="flex items-center space-x-4 bg-brand-blue-800 p-2 rounded-xl border border-brand-blue-700">
-                <span className="text-slate-300 font-semibold">Seleccionar Mes:</span>
+              <div className="flex items-center space-x-2 md:space-x-4 bg-brand-blue-800 p-2 rounded-xl border border-brand-blue-700 w-full md:w-auto">
+                <span className="text-slate-300 font-semibold text-sm md:text-base whitespace-nowrap">Mes:</span>
                 <input 
                   type="month" 
                   value={historyMonth} 
                   onChange={(e) => setHistoryMonth(e.target.value)} 
-                  className="bg-brand-blue-900 border border-brand-blue-600 text-white rounded p-1"
+                  className="bg-brand-blue-900 border border-brand-blue-600 text-white rounded p-1 w-full md:w-auto"
                 />
               </div>
             </div>
@@ -2403,16 +2403,17 @@ export default function App() {
             )}
 
             <div className="bg-brand-blue-800 border border-brand-blue-700 rounded-2xl overflow-hidden shadow-xl">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="bg-brand-blue-900/50 text-slate-400 border-b border-brand-blue-700">
-                    <th className="p-4 font-semibold">Requerimiento</th>
-                    <th className="p-4 font-semibold">Solicitante</th>
-                    <th className="p-4 font-semibold">Técnico</th>
-                    <th className="p-4 font-semibold text-right">Estado y Fecha</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-brand-blue-700">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-sm min-w-[600px]">
+                  <thead>
+                    <tr className="bg-brand-blue-900/50 text-slate-400 border-b border-brand-blue-700">
+                      <th className="p-4 font-semibold">Requerimiento</th>
+                      <th className="p-4 font-semibold">Solicitante</th>
+                      <th className="p-4 font-semibold">Técnico</th>
+                      <th className="p-4 font-semibold text-right">Estado y Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-brand-blue-700">
                   {historyData.length === 0 && (
                     <tr>
                       <td colSpan={4} className="p-4 text-center text-slate-400">
@@ -2444,6 +2445,7 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         )}

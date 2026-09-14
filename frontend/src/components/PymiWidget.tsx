@@ -102,7 +102,7 @@ export default function PymiWidget({ currentUser }: PymiWidgetProps) {
   return (
     <>
       {/* Botón Flotante con Saludo */}
-      <div className={`fixed bottom-6 right-6 lg:bottom-10 lg:right-10 z-50 flex flex-col items-end transition-all duration-300 ${isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'}`}>
+      <div className={`fixed bottom-[80px] md:bottom-6 right-6 lg:bottom-10 lg:right-10 z-[60] flex flex-col items-end transition-all duration-300 ${isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'}`}>
         {/* Burbuja de Saludo Inicial */}
         {showGreetingBubble && (
           <div 
@@ -128,7 +128,7 @@ export default function PymiWidget({ currentUser }: PymiWidgetProps) {
       </div>
 
       {/* Ventana de Chat */}
-      <div className={`fixed bottom-0 right-0 sm:bottom-6 sm:right-6 lg:bottom-10 lg:right-10 w-full sm:w-96 h-full sm:h-[600px] bg-brand-blue-900 sm:rounded-2xl border border-brand-blue-700 shadow-2xl flex flex-col z-50 transition-all duration-300 transform origin-bottom-right ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 pointer-events-none translate-y-10'}`}>
+      <div className={`fixed bottom-[70px] md:bottom-0 right-0 sm:bottom-6 sm:right-6 lg:bottom-10 lg:right-10 w-full sm:w-96 h-[calc(100%-70px)] sm:h-[600px] bg-brand-blue-900 sm:rounded-2xl border border-brand-blue-700 shadow-2xl flex flex-col z-[60] transition-all duration-300 transform origin-bottom-right ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 pointer-events-none translate-y-10'}`}>
         
         {/* Cabecera del Chat */}
         <div className="bg-brand-blue-800 p-4 sm:rounded-t-2xl border-b border-brand-blue-700 flex justify-between items-center shadow-md shrink-0">

@@ -23,6 +23,9 @@ import {
   Printer,
   MessageSquare,
   Monitor,
+  UploadCloud,
+  Image as ImageIcon,
+  ClipboardPaste,
 } from "lucide-react";
 import PymiWidget from "./components/PymiWidget";
 import TicketChatModal from "./components/TicketChatModal";
@@ -271,6 +274,9 @@ export default function App() {
     priority: "Media",
     remoteId: "",
   });
+  const [ticketFormError, setTicketFormError] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const ticketFileInputRef = useRef<HTMLInputElement>(null);
   const [categoryForm, setCategoryForm] = useState({ title: "", requiresDescription: false, requiresImage: false });
 
   // State hooks for Bot Rules
@@ -700,19 +706,73 @@ export default function App() {
     };
   }, [currentUser]);
 
+  // Manejo de previsualización de imágenes adjuntadas
+  useEffect(() => {
+    if (!ticketForm.image) {
+      setImagePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(ticketForm.image);
+    setImagePreviewUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [ticketForm.image]);
+
+  // Captura directa de portapapeles con Ctrl + V cuando el modal de ticket está abierto
+  useEffect(() => {
+    if (!isTicketModalOpen) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf("image") !== -1) {
+          const blob = item.getAsFile();
+          if (blob) {
+            e.preventDefault();
+            const ext = blob.type.split("/")[1] || "png";
+            const file = new File(
+              [blob],
+              `captura_${Date.now()}.${ext}`,
+              { type: blob.type }
+            );
+            setTicketForm((prev) => ({ ...prev, image: file }));
+            setTicketFormError(null);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => {
+      window.removeEventListener("paste", handlePaste);
+    };
+  }, [isTicketModalOpen]);
+
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ticketForm.categoryId) return alert("Debe seleccionar una categoría.");
+    setTicketFormError(null);
+
+    if (!ticketForm.categoryId) {
+      setTicketFormError("Debe seleccionar un tipo de requerimiento.");
+      return;
+    }
 
     const cat = categories.find((c) => c.id === ticketForm.categoryId);
     const title = cat ? cat.title : "Requerimiento General";
 
     if (cat?.requiresDescription && !ticketForm.description.trim()) {
-      return alert("Debe proporcionar una descripción detallada para este tipo de requerimiento.");
+      setTicketFormError("Debe proporcionar una descripción detallada obligatoria para esta categoría.");
+      return;
     }
 
     if (cat?.requiresImage && !ticketForm.image) {
-      return alert("La evidencia fotográfica es obligatoria para este tipo de requerimiento.");
+      setTicketFormError("La evidencia fotográfica es obligatoria para esta categoría. Adjunte una imagen o presione Ctrl + V para pegar su captura.");
+      return;
     }
 
     // Validaciones anti-garabatos (gibberish) extremas
@@ -720,16 +780,19 @@ export default function App() {
       const desc = ticketForm.description.trim();
       
       if (desc.length < 10) {
-        return alert("Por favor, proporcione una descripción detallada (mínimo 10 caracteres).");
+        setTicketFormError("Por favor, proporcione una descripción más detallada (mínimo 10 caracteres).");
+        return;
       }
 
       if (/(.)\1{4,}/.test(desc)) {
-        return alert("La descripción contiene muchos caracteres repetidos. Por favor, escriba texto coherente.");
+        setTicketFormError("La descripción contiene muchos caracteres repetidos. Por favor, escriba texto coherente.");
+        return;
       }
 
       const words = desc.split(/\s+/);
       if (words.some(w => w.length > 25 && !w.startsWith('http'))) {
-        return alert("La descripción contiene palabras exageradamente largas. Por favor, escriba texto coherente.");
+        setTicketFormError("La descripción contiene palabras exageradamente largas. Por favor, escriba texto coherente.");
+        return;
       }
       
       let meaninglessWordsCount = 0;
@@ -749,11 +812,13 @@ export default function App() {
       const totalVowels = (desc.match(/[aeiouáéíóú]/gi) || []).length;
       
       if (totalLetters > 10 && (totalVowels / totalLetters) < 0.20) {
-        return alert("El sistema detecta que el texto carece de vocales (incoherente). Explique su problema claramente.");
+        setTicketFormError("El sistema detecta que el texto carece de vocales (incoherente). Explique su problema claramente.");
+        return;
       }
 
       if (meaninglessWordsCount >= 2) {
-        return alert("El sistema ha detectado tipeo aleatorio o texto sin sentido. Explique su problema claramente.");
+        setTicketFormError("El sistema ha detectado tipeo aleatorio o texto sin sentido. Explique su problema claramente.");
+        return;
       }
     }
 
@@ -776,8 +841,10 @@ export default function App() {
       });
       setIsTicketModalOpen(false);
       setTicketForm({ title: "", description: "", categoryId: "", image: null, priority: "Media", remoteId: "" });
+      setTicketFormError(null);
+      setImagePreviewUrl(null);
     } catch (err) {
-      alert("Error al crear el requerimiento");
+      setTicketFormError("Error al registrar el requerimiento en el servidor.");
     }
   };
 
@@ -3024,30 +3091,48 @@ export default function App() {
       )}
       {/* TICKET CREATION MODAL */}
       {isTicketModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue-900/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-brand-blue-800 border border-brand-blue-700 rounded-2xl p-8 w-full max-w-md shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue-900/80 backdrop-blur-sm animate-fade-in p-4">
+          <div className="bg-brand-blue-800 border border-brand-blue-700 rounded-2xl p-6 sm:p-8 w-full max-w-lg shadow-2xl relative max-h-[92vh] overflow-y-auto">
             <button
-              onClick={() => setIsTicketModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+              onClick={() => {
+                setIsTicketModalOpen(false);
+                setTicketFormError(null);
+              }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-brand-blue-700/50 transition-colors"
             >
-              <X size={24} />
+              <X size={22} />
             </button>
-            <h3 className="text-2xl font-bold text-white mb-6">
-              Nuevo Requerimiento
-            </h3>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2.5 rounded-xl bg-brand-neon/10 border border-brand-neon/30 text-brand-neon">
+                <LifeBuoy size={22} />
+              </div>
+              <div>
+                <h3 className="text-xl sm:text-2xl font-bold text-white">
+                  Nuevo Requerimiento
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Complete los datos para que el equipo técnico atienda su solicitud.
+                </p>
+              </div>
+            </div>
 
             <form onSubmit={handleCreateTicket} className="space-y-4">
+              {/* TIPO DE REQUERIMIENTO */}
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">
-                  Tipo de Requerimiento
+                <label className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>Tipo de Requerimiento</span>
+                  <span className="text-red-400 text-xs font-semibold">* Requerido</span>
                 </label>
                 <select
                   required
                   value={ticketForm.categoryId}
-                  onChange={(e) =>
-                    setTicketForm({ ...ticketForm, categoryId: e.target.value })
-                  }
-                  className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-neon mb-6"
+                  onChange={(e) => {
+                    setTicketForm({ ...ticketForm, categoryId: e.target.value });
+                    setTicketFormError(null);
+                  }}
+                  className={`w-full bg-brand-blue-900 border rounded-xl p-3 text-white focus:outline-none focus:border-brand-neon transition-colors ${
+                    ticketFormError && !ticketForm.categoryId ? "border-red-500 ring-2 ring-red-500/30" : "border-brand-blue-700"
+                  }`}
                 >
                   <option value="" disabled>
                     Seleccione una categoría...
@@ -3060,14 +3145,88 @@ export default function App() {
                 </select>
               </div>
 
+              {/* AVISO DINÁMICO DE CONDICIONES OBLIGATORIAS */}
+              {(() => {
+                const selCat = categories.find((c) => c.id === ticketForm.categoryId);
+                if (!ticketForm.categoryId) {
+                  return (
+                    <div className="bg-brand-blue-900/40 border border-brand-blue-700/50 rounded-xl p-2.5 text-xs text-slate-400 text-center flex items-center justify-center gap-2">
+                      <span>💡</span>
+                      <span>Seleccione una categoría para conocer los recaudos requeridos.</span>
+                    </div>
+                  );
+                }
+                if (selCat?.requiresDescription && selCat?.requiresImage) {
+                  return (
+                    <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl p-3 text-amber-200 text-xs flex items-start gap-2.5 shadow-sm">
+                      <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-amber-300">Requisitos obligatorios para esta categoría:</p>
+                        <ul className="mt-1 space-y-0.5 text-amber-100">
+                          <li className="flex items-center gap-1.5">
+                            <span className="text-amber-400 font-bold">•</span>
+                            <span><strong>Descripción detallada:</strong> Redacte el detalle de su problema (mín. 10 caracteres).</span>
+                          </li>
+                          <li className="flex items-center gap-1.5">
+                            <span className="text-amber-400 font-bold">•</span>
+                            <span><strong>Evidencia fotográfica:</strong> Adjunte foto o pegue captura con <strong>Ctrl + V</strong>.</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  );
+                }
+                if (selCat?.requiresDescription) {
+                  return (
+                    <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl p-3 text-amber-200 text-xs flex items-start gap-2.5 shadow-sm">
+                      <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-amber-300">Requisito obligatorio:</p>
+                        <p className="mt-0.5 text-amber-100">
+                          Esta categoría exige una <strong>descripción detallada</strong> (mín. 10 caracteres). La evidencia fotográfica es opcional.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                if (selCat?.requiresImage) {
+                  return (
+                    <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl p-3 text-amber-200 text-xs flex items-start gap-2.5 shadow-sm">
+                      <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-amber-300">Requisito obligatorio:</p>
+                        <p className="mt-0.5 text-amber-100">
+                          Esta categoría exige adjuntar una <strong>evidencia fotográfica o captura</strong> (puede pegar directamente con <strong>Ctrl + V</strong>). La descripción es opcional.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-2.5 text-xs text-emerald-200 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Para este requerimiento, la descripción y la foto son <strong>opcionales</strong>.</span>
+                  </div>
+                );
+              })()}
+
+              {/* DESCRIPCIÓN */}
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1 flex justify-between">
-                  <span>
-                    Descripción Corta 
-                    {categories.find(c => c.id === ticketForm.categoryId)?.requiresDescription ? ' (Obligatoria)' : ' (Opcional)'}
-                  </span>
-                  <span className={ticketForm.description.split(/\s+/).filter(w => w.length > 0).length > 100 ? "text-red-500 font-bold" : "text-slate-500"}>
-                    {ticketForm.description.split(/\s+/).filter(w => w.length > 0).length}/100 palabras
+                <label className="block text-sm font-medium text-slate-300 mb-1.5 flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span>Descripción Corta</span>
+                    {categories.find((c) => c.id === ticketForm.categoryId)?.requiresDescription ? (
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
+                        Obligatoria
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-slate-700/60 text-slate-400 border border-slate-600/40 uppercase tracking-wider">
+                        Opcional
+                      </span>
+                    )}
+                  </div>
+                  <span className={ticketForm.description.split(/\s+/).filter((w) => w.length > 0).length > 100 ? "text-red-400 font-bold text-xs" : "text-slate-400 text-xs"}>
+                    {ticketForm.description.split(/\s+/).filter((w) => w.length > 0).length}/100 palabras
                   </span>
                 </label>
                 <textarea
@@ -3079,40 +3238,134 @@ export default function App() {
                     if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,¿?¡!]*$/.test(text)) {
                       return; // Filtro cognitivo: bloquea garabatos
                     }
-                    if (text.split(/\s+/).filter(w => w.length > 0).length <= 100) {
+                    if (text.split(/\s+/).filter((w) => w.length > 0).length <= 100) {
                       setTicketForm({ ...ticketForm, description: text });
+                      setTicketFormError(null);
                     }
                   }}
-                  className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-neon mb-6 resize-none"
+                  className={`w-full bg-brand-blue-900 border rounded-xl p-3 text-white focus:outline-none focus:border-brand-neon resize-none transition-colors ${
+                    ticketFormError && categories.find((c) => c.id === ticketForm.categoryId)?.requiresDescription && !ticketForm.description.trim()
+                      ? "border-red-500 ring-2 ring-red-500/30"
+                      : "border-brand-blue-700"
+                  }`}
                 />
               </div>
 
+              {/* FOTO O EVIDENCIA CON PREVIEW Y CTRL + V */}
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">
-                  Foto o Evidencia del Problema 
-                  {categories.find(c => c.id === ticketForm.categoryId)?.requiresImage ? ' (Obligatoria)' : ' (Opcional)'}
+                <label className="block text-sm font-medium text-slate-300 mb-1.5 flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span>Foto o Evidencia del Problema</span>
+                    {categories.find((c) => c.id === ticketForm.categoryId)?.requiresImage ? (
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider">
+                        Obligatoria
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-slate-700/60 text-slate-400 border border-slate-600/40 uppercase tracking-wider">
+                        Opcional
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-brand-neon font-medium flex items-center gap-1">
+                    <ClipboardPaste size={12} /> Soporta Ctrl + V
+                  </span>
                 </label>
+
                 <input
+                  ref={ticketFileInputRef}
                   type="file"
                   accept="image/*"
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       setTicketForm({ ...ticketForm, image: e.target.files[0] });
+                      setTicketFormError(null);
                     }
                   }}
-                  className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-2 text-white focus:outline-none focus:border-brand-neon file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-neon file:text-brand-blue-900 hover:file:bg-green-400 mb-4"
+                  className="hidden"
                 />
+
+                {ticketForm.image ? (
+                  <div className="bg-brand-blue-900/90 border border-brand-neon/50 rounded-xl p-3 flex items-center justify-between gap-3 shadow-md">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      {imagePreviewUrl ? (
+                        <img
+                          src={imagePreviewUrl}
+                          alt="Evidencia"
+                          className="w-14 h-14 object-cover rounded-lg border border-brand-neon/40 shrink-0 bg-black/40"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg bg-brand-blue-800 flex items-center justify-center shrink-0 text-brand-neon">
+                          <ImageIcon size={24} />
+                        </div>
+                      )}
+                      <div className="overflow-hidden">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-semibold text-white truncate max-w-[200px]">
+                            {ticketForm.image.name}
+                          </p>
+                          <span className="bg-brand-neon/20 text-brand-neon text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0">
+                            Adjuntada
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {(ticketForm.image.size / 1024).toFixed(1)} KB &bull; Lista para enviar
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTicketForm({ ...ticketForm, image: null });
+                        if (ticketFileInputRef.current) ticketFileInputRef.current.value = "";
+                      }}
+                      className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                      title="Quitar imagen"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => ticketFileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        setTicketForm({ ...ticketForm, image: e.dataTransfer.files[0] });
+                        setTicketFormError(null);
+                      }
+                    }}
+                    className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all group ${
+                      ticketFormError && categories.find((c) => c.id === ticketForm.categoryId)?.requiresImage && !ticketForm.image
+                        ? "border-red-500 ring-2 ring-red-500/30 bg-red-500/10"
+                        : "border-brand-blue-700 hover:border-brand-neon/60 bg-brand-blue-900/40 hover:bg-brand-blue-900/80"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <div className="p-2 rounded-full bg-brand-blue-800 text-brand-neon group-hover:scale-110 transition-transform">
+                        <UploadCloud size={20} />
+                      </div>
+                      <p className="text-xs font-semibold text-slate-200">
+                        Haz clic para examinar o presiona <span className="text-brand-neon font-bold">Ctrl + V</span>
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Pega una captura de pantalla del portapapeles o sube PNG, JPG
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* PRIORIDAD Y REMOTO */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-1">
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
                     Nivel de Prioridad
                   </label>
                   <select
                     value={ticketForm.priority}
                     onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value })}
-                    className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-neon text-sm"
+                    className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-neon text-sm"
                   >
                     <option value="Baja">Baja (Consultas)</option>
                     <option value="Media">Media (Normal)</option>
@@ -3122,7 +3375,7 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-1">
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
                     AnyDesk / RustDesk <span className="text-slate-500">(Opcional)</span>
                   </label>
                   <input
@@ -3130,14 +3383,22 @@ export default function App() {
                     placeholder="Ej. 1 928 472 819"
                     value={ticketForm.remoteId}
                     onChange={(e) => setTicketForm({ ...ticketForm, remoteId: e.target.value })}
-                    className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-neon text-sm font-mono"
+                    className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-neon text-sm font-mono"
                   />
                 </div>
               </div>
 
+              {/* ERROR INLINE EN FORMULARIO */}
+              {ticketFormError && (
+                <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-3 text-red-200 text-xs flex items-start gap-2.5 shadow-md">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <span className="font-medium">{ticketFormError}</span>
+                </div>
+              )}
+
               <button
                 type="submit"
-                className="w-full bg-brand-neon hover:bg-green-400 text-brand-blue-900 font-bold py-4 rounded-xl transition-all shadow-[0_0_15px_rgba(46,204,113,0.3)]"
+                className="w-full bg-brand-neon hover:bg-green-400 text-brand-blue-900 font-bold py-3.5 rounded-xl transition-all shadow-[0_0_15px_rgba(46,204,113,0.3)] hover:shadow-[0_0_20px_rgba(46,204,113,0.5)] active:scale-[0.99] mt-2"
               >
                 Solicitar Asistencia
               </button>

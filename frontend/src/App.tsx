@@ -27,6 +27,7 @@ import {
   Image as ImageIcon,
   ClipboardPaste,
   Star,
+  Lock,
 } from "lucide-react";
 import PymiWidget from "./components/PymiWidget";
 import TicketChatModal from "./components/TicketChatModal";
@@ -1681,14 +1682,10 @@ export default function App() {
   const activeTickets = tickets
     .filter((t) => !closedStatuses.includes(t.status))
     .filter((t) => {
-      if (currentUser?.role === "Técnico IT") {
-        // Privacidad estricta: un técnico solo ve casos 'En Espera' o asignados a él mismo
-        return t.status === "En Espera" || t.techId === currentUser.id;
-      }
       if (currentUser?.role === "Solicitante") {
         return t.userId === currentUser.id;
       }
-      return true; // Super Admin ve todos
+      return true; // Técnicos y Super Admin ven todos los casos activos
     });
 
   const closedTickets = tickets.filter((t) =>
@@ -2254,7 +2251,9 @@ export default function App() {
                       No hay requerimientos activos en la bandeja.
                     </div>
                   )}
-                  {activeTickets.map((t) => (
+                  {activeTickets.map((t) => {
+                    const isTakenByOtherTech = currentUser?.role === "Técnico IT" && t.techId && t.techId !== currentUser.id;
+                    return (
                     <div
                       key={t.id}
                       className={`bg-brand-blue-800 border border-brand-blue-700 p-5 rounded-2xl shadow-lg flex flex-col md:flex-row gap-4 items-start md:items-center justify-between`}
@@ -2285,7 +2284,7 @@ export default function App() {
                           }`}>
                             {t.priority || 'Media'}
                           </span>
-                          {t.remoteId && (
+                          {t.remoteId && !isTakenByOtherTech && (
                             <span className="inline-flex items-center gap-1 text-[11px] font-mono text-brand-neon bg-brand-blue-900 px-2 py-0.5 rounded border border-brand-neon/40">
                               <Monitor size={12} /> AnyDesk: {t.remoteId}
                             </span>
@@ -2298,7 +2297,7 @@ export default function App() {
                         <p className="text-lg font-bold text-brand-neon mt-2">
                           {t.description}
                         </p>
-                        {t.imageUrl && (
+                        {t.imageUrl && !isTakenByOtherTech && (
                           <div className="mt-2">
                             <button
                               type="button"
@@ -2307,6 +2306,13 @@ export default function App() {
                             >
                               <span className="mr-1.5">📷</span> Ver Evidencia del Requerimiento
                             </button>
+                          </div>
+                        )}
+                        {t.imageUrl && isTakenByOtherTech && (
+                          <div className="mt-2">
+                            <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
+                              <Lock size={12} className="text-amber-400" /> Evidencia adjunta privada
+                            </span>
                           </div>
                         )}
 
@@ -2335,62 +2341,72 @@ export default function App() {
                       </div>
 
                       <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0 flex-wrap">
-                        <button
-                          onClick={() => {
-                            setUnreadChatCounts((prev) => ({ ...prev, [t.id]: 0 }));
-                            setChatNotificationToast((prev) => prev?.ticketId === t.id ? null : prev);
-                            setSelectedTicketForChat(t);
-                          }}
-                          className={`flex-1 md:flex-none font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs shadow-sm border ${
-                            unreadChatCounts[t.id]
-                              ? "bg-amber-400 hover:bg-amber-300 text-brand-blue-900 border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.5)] animate-pulse"
-                              : "bg-brand-blue-700 hover:bg-brand-blue-600 text-brand-neon border-brand-blue-600"
-                          }`}
-                          title="Abrir Chat y Notas del Requerimiento"
-                        >
-                          {unreadChatCounts[t.id] ? (
-                            <span className="relative flex h-2.5 w-2.5">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-                            </span>
-                          ) : (
-                            <MessageSquare size={15} />
-                          )}
-                          <span>Chat / Notas</span>
-                          {unreadChatCounts[t.id] ? (
-                            <span className="bg-red-600 text-white font-extrabold px-1.5 py-0.2 rounded-full text-[10px] ml-1">
-                              {unreadChatCounts[t.id]}
-                            </span>
-                          ) : null}
-                        </button>
+                        {isTakenByOtherTech ? (
+                          <div className="flex items-center gap-1.5 text-xs text-amber-300/90 bg-amber-950/40 border border-amber-500/30 px-3 py-2 rounded-xl">
+                            <Lock size={14} className="text-amber-400 shrink-0" />
+                            <span>Caso y Chat Privados ({t.tech?.fullName || 'Otro Técnico'})</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setUnreadChatCounts((prev) => ({ ...prev, [t.id]: 0 }));
+                              setChatNotificationToast((prev) => prev?.ticketId === t.id ? null : prev);
+                              setSelectedTicketForChat(t);
+                            }}
+                            className={`flex-1 md:flex-none font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs shadow-sm border ${
+                              unreadChatCounts[t.id]
+                                ? "bg-amber-400 hover:bg-amber-300 text-brand-blue-900 border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.5)] animate-pulse"
+                                : "bg-brand-blue-700 hover:bg-brand-blue-600 text-brand-neon border-brand-blue-600"
+                            }`}
+                            title="Abrir Chat y Notas del Requerimiento"
+                          >
+                            {unreadChatCounts[t.id] ? (
+                              <span className="relative flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                              </span>
+                            ) : (
+                              <MessageSquare size={15} />
+                            )}
+                            <span>Chat / Notas</span>
+                            {unreadChatCounts[t.id] ? (
+                              <span className="bg-red-600 text-white font-extrabold px-1.5 py-0.2 rounded-full text-[10px] ml-1">
+                                {unreadChatCounts[t.id]}
+                              </span>
+                            ) : null}
+                          </button>
+                        )}
 
-                        {t.status === "En Espera" &&
-                          currentUser.role === "Super Admin" && (
-                            <div className="flex gap-2 items-center">
-                              <select
-                                onChange={(e) =>
-                                  handleAssignTicket(t.id, e.target.value)
-                                }
-                                className="bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-2 text-white focus:outline-none text-sm"
-                                defaultValue=""
-                              >
-                                <option value="" disabled>
-                                  Asignar a...
-                                </option>
-                                {users
-                                  .filter(
-                                    (u) =>
-                                      u.role === "Técnico IT" &&
-                                      u.status === "Activo",
-                                  )
-                                  .map((tech) => (
-                                    <option key={tech.id} value={tech.id}>
-                                      {tech.fullName}
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
-                          )}
+                        {currentUser.role === "Super Admin" && (
+                          <div className="flex gap-2 items-center">
+                            <select
+                              value={t.techId || ""}
+                              onChange={(e) =>
+                                handleAssignTicket(t.id, e.target.value)
+                              }
+                              className="bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-2 text-white focus:outline-none text-xs font-bold hover:border-brand-neon transition-colors"
+                              title="Asignar o Reasignar Técnico Responsable"
+                            >
+                              <option value="" disabled>
+                                {t.tech ? `Reasignar (Actual: ${t.tech.fullName})` : "Asignar a..."}
+                              </option>
+                              {t.techId && (
+                                <option value="unassign">⚠️ Dejar En Espera (Sin Técnico)</option>
+                              )}
+                              {users
+                                .filter(
+                                  (u) =>
+                                    u.role === "Técnico IT" &&
+                                    u.status === "Activo",
+                                )
+                                .map((tech) => (
+                                  <option key={tech.id} value={tech.id}>
+                                    👨‍💻 {tech.fullName} {tech.id === t.techId ? "(Asignado)" : ""}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        )}
                         {t.status === "En Espera" &&
                           currentUser.role === "Técnico IT" && (
                             <button
@@ -2420,7 +2436,8 @@ export default function App() {
                           )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

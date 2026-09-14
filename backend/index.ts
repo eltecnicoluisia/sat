@@ -517,13 +517,17 @@ app.put('/api/tickets/:id/take', async (req, res) => {
   }
 });
 
-// Asignar Ticket (Por Admin)
+// Asignar o Reasignar Ticket (Por Admin)
 app.put('/api/tickets/:id/assign', async (req, res) => {
   try {
     const { techId } = req.body;
+    const isUnassigning = !techId || techId === 'unassign';
     const ticket = await prisma.ticket.update({
       where: { id: req.params.id },
-      data: { techId, status: 'En Proceso' },
+      data: {
+        techId: isUnassigning ? null : techId,
+        status: isUnassigning ? 'En Espera' : 'En Proceso'
+      },
       include: ticketInclude
     });
     io.emit('ticket:assigned', ticket);
@@ -746,12 +750,6 @@ app.get('/api/tickets', async (req, res) => {
     
     if (role === 'Solicitante' && userId) {
       whereClause.userId = String(userId);
-    } else if (role === 'Técnico IT' && userId && !techId) {
-      // Privacidad estricta entre técnicos: solo ven casos 'En Espera' (libres) o asignados a ellos
-      whereClause.OR = [
-        { status: 'En Espera' },
-        { techId: String(userId) }
-      ];
     }
     
     if (techId) {

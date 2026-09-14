@@ -92,6 +92,19 @@ const validatePassword = (password: string): string | null => {
 
 const prisma = new PrismaClient();
 
+// Optimización y Robustez SQLite (WAL mode, foreign keys, busy timeout)
+prisma.$connect().then(async () => {
+  try {
+    await prisma.$executeRawUnsafe('PRAGMA journal_mode = WAL;');
+    await prisma.$executeRawUnsafe('PRAGMA synchronous = NORMAL;');
+    await prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON;');
+    await prisma.$executeRawUnsafe('PRAGMA busy_timeout = 5000;');
+    console.log('[DB] SQLite WAL mode y PRAGMAs configurados exitosamente');
+  } catch (err) {
+    console.error('[DB] Error configurando SQLite PRAGMAs:', err);
+  }
+});
+
 // Campos seguros de usuario (nunca exponer hash de contraseña)
 const safeUserSelect = {
   id: true,
@@ -121,6 +134,16 @@ const ticketInclude = {
 };
 
 const app = express();
+app.disable('x-powered-by');
+
+// Cabeceras HTTP de Seguridad
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -1034,6 +1057,19 @@ app.get('/api/tickets/export/csv', async (req, res) => {
     console.error("Error exporting tickets to CSV:", err);
     res.status(500).json({ error: 'Error exportando tickets' });
   }
+});
+
+// Middleware Global de Manejo de Errores (Multer y Excepciones)
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'El archivo excede el tamaño máximo permitido de 5MB.' });
+    }
+    return res.status(400).json({ error: `Error en la subida de archivo: ${err.message}` });
+  } else if (err) {
+    return res.status(400).json({ error: err.message || 'Ocurrió un error en el servidor.' });
+  }
+  next();
 });
 
 // Inicialización

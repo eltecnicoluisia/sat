@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     // URL de producción del servidor SAT
-    url: 'https://sat.inapymi.gob.ve',
+    url: 'https://sat.informaticosvenezuela.com',
     cleartext: false
   },
   plugins: {

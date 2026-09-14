@@ -59,7 +59,7 @@ const DEMO_USERS = [
     role: "Super Admin",
     gerencia: "Tecnología",
     unidad: "Administración General",
-    email: "admin@inapymi.gob.ve",
+    email: "admin@informaticosvenezuela.com",
     roleLabel: "Super Admin"
   },
   {
@@ -69,7 +69,7 @@ const DEMO_USERS = [
     role: "Técnico IT",
     gerencia: "Tecnología",
     unidad: "Soporte Técnico",
-    email: "luzcategui@inapymi.gob.ve",
+    email: "luzcategui@informaticosvenezuela.com",
     roleLabel: "Técnico IT"
   },
   {
@@ -79,7 +79,7 @@ const DEMO_USERS = [
     role: "Técnico IT",
     gerencia: "Tecnología",
     unidad: "Soporte Técnico",
-    email: "juzcategui@inapymi.gob.ve",
+    email: "juzcategui@informaticosvenezuela.com",
     roleLabel: "Técnico IT"
   }
 ];
@@ -147,9 +147,9 @@ axios.interceptors.response.use(
       ];
     } else if (url.includes("/api/users")) {
       data = [
-        { id: "1", fullName: "Administrador Principal", cedula: "administrador", role: "Super Admin", status: "Activo", gerencia: "Tecnología", unidad: "Administración General", email: "admin@inapymi.gob.ve" },
-        { id: "2", fullName: "Luis Uzcategui", cedula: "12832779", role: "Técnico IT", status: "Activo", gerencia: "Tecnología", unidad: "Soporte Técnico", email: "luzcategui@inapymi.gob.ve" },
-        { id: "3", fullName: "John Uzcategui", cedula: "8777885", role: "Técnico IT", status: "Activo", gerencia: "Tecnología", unidad: "Soporte Técnico", email: "juzcategui@inapymi.gob.ve" }
+        { id: "1", fullName: "Administrador Principal", cedula: "administrador", role: "Super Admin", status: "Activo", gerencia: "Tecnología", unidad: "Administración General", email: "admin@informaticosvenezuela.com" },
+        { id: "2", fullName: "Luis Uzcategui", cedula: "12832779", role: "Técnico IT", status: "Activo", gerencia: "Tecnología", unidad: "Soporte Técnico", email: "luzcategui@informaticosvenezuela.com" },
+        { id: "3", fullName: "John Uzcategui", cedula: "8777885", role: "Técnico IT", status: "Activo", gerencia: "Tecnología", unidad: "Soporte Técnico", email: "juzcategui@informaticosvenezuela.com" }
       ];
     } else if (url.includes("/api/reports")) {
       data = {
@@ -223,8 +223,8 @@ export default function App() {
   // Autenticación en sesión de pestaña/navegador (se destruye al cerrar el navegador)
   const [currentUser, setCurrentUser] = useState<any>(() => {
     try {
-      localStorage.removeItem("inapymi_user");
-      const saved = sessionStorage.getItem("inapymi_user");
+      localStorage.removeItem("sat_user");
+      const saved = sessionStorage.getItem("sat_user");
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -454,7 +454,7 @@ export default function App() {
             if (meRes.data && (meRes.data.role !== currentUser.role || meRes.data.fullName !== currentUser.fullName || meRes.data.gerencia !== currentUser.gerencia)) {
               const freshUser = { ...currentUser, ...meRes.data };
               setCurrentUser(freshUser);
-              sessionStorage.setItem("inapymi_user", JSON.stringify(freshUser));
+              sessionStorage.setItem("sat_user", JSON.stringify(freshUser));
               return;
             }
           } catch (e) {
@@ -496,7 +496,7 @@ export default function App() {
         if (updatedUser && (updatedUser.id === currentUser.id || updatedUser.cedula === currentUser.cedula)) {
           const freshUser = { ...currentUser, ...updatedUser };
           setCurrentUser(freshUser);
-          sessionStorage.setItem("inapymi_user", JSON.stringify(freshUser));
+          sessionStorage.setItem("sat_user", JSON.stringify(freshUser));
         }
       });
 
@@ -506,7 +506,7 @@ export default function App() {
           if (meRes.data && (meRes.data.role !== currentUser.role || meRes.data.fullName !== currentUser.fullName)) {
             const freshUser = { ...currentUser, ...meRes.data };
             setCurrentUser(freshUser);
-            sessionStorage.setItem("inapymi_user", JSON.stringify(freshUser));
+            sessionStorage.setItem("sat_user", JSON.stringify(freshUser));
           }
         } catch (e) {
           console.error(e);
@@ -736,7 +736,7 @@ export default function App() {
         if (currentUser && (editingUserId === currentUser.id || payload.cedula === currentUser.cedula)) {
           const updatedSelf = { ...currentUser, ...res.data };
           setCurrentUser(updatedSelf);
-          sessionStorage.setItem("inapymi_user", JSON.stringify(updatedSelf));
+          sessionStorage.setItem("sat_user", JSON.stringify(updatedSelf));
         }
       } else {
         await axios.post("/api/users", payload);
@@ -772,7 +772,7 @@ export default function App() {
         setMustChangePasswordUser(res.data);
       } else {
         setCurrentUser(res.data);
-        sessionStorage.setItem("inapymi_user", JSON.stringify(res.data));
+        sessionStorage.setItem("sat_user", JSON.stringify(res.data));
       }
     } catch (err: any) {
       setLoginError(err.response?.data?.error || "Error de conexión");
@@ -807,7 +807,7 @@ export default function App() {
         mustChangePassword: false,
       };
       setCurrentUser(updatedUser);
-      sessionStorage.setItem("inapymi_user", JSON.stringify(updatedUser));
+      sessionStorage.setItem("sat_user", JSON.stringify(updatedUser));
       setMustChangePasswordUser(null);
       setForcePasswordForm({ newPassword: "" });
       setLoginForm({ cedula: "", password: "" });
@@ -1797,7 +1797,7 @@ export default function App() {
         <div className="px-3 lg:p-4 border-t border-brand-blue-700 flex flex-col gap-2 pb-6 mt-auto pt-4">
           {/* Boton descarga directa APK Android */}
           <a
-            href="/SAT-App.apk"
+            href="/SAT-App.apk?v=1.0.1"
             download="SAT-App.apk"
             className="w-full bg-brand-blue-800 hover:bg-brand-blue-700 text-brand-neon font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-2 border border-brand-neon/30 text-sm glow-neon"
             title="Instalar APK Android"
@@ -3870,7 +3870,7 @@ export default function App() {
                   onChange={(e) => {
                     setForceAdminForm({ newPassword: e.target.value });
                   }}
-                  placeholder="Ej. INAPYMI-1234"
+                  placeholder="Ej. SAT-1234"
                   className="w-full bg-brand-blue-900 border border-brand-blue-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-neon transition-colors"
                 />
               </div>

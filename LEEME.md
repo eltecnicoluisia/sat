@@ -1,4 +1,4 @@
-# Sistema de Asistencia Tecnológica (SAT) - INAPYMI
+# Sistema de Asistencia Tecnológica (SAT) - Informáticos Venezuela
 
 Este paquete contiene el código fuente completo del frontend (React/Vite) y backend (Node.js/Express/Prisma) del Sistema de Asistencia Tecnológica.
 
@@ -94,7 +94,7 @@ sudo systemctl restart nginx
 
 - **URL de acceso:** http://tu-dominio.com
 - **Usuario Administrador:** `administrador` (Cédula: administrador)
-- **Contraseña:** `Inapymi2001` (o la contraseña que haya estado configurada en el último backup).
+- **Contraseña:** `sat2026` (o la contraseña que haya estado configurada en el último backup).
 
 ## Compilación de APK Android
 

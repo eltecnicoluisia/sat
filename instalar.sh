@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================
-# Script de Instalación Automática - SAT INAPYMI
+# Script de Instalación Automática - SAT Informáticos Venezuela
 # Sistema de Asistencia Tecnológica
 # =============================================================
 # USO: bash instalar.sh

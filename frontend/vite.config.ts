@@ -18,9 +18,9 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /^\/socket\.io/]
       },
       manifest: {
-        name: 'SAT Helpdesk INAPYMI',
+        name: 'SAT - Informáticos Venezuela',
         short_name: 'SAT',
-        description: 'Sistema de Atención al Trabajador INAPYMI',
+        description: 'Sistema de Atención Tecnológica - Informáticos Venezuela',
         theme_color: '#0a192f',
         background_color: '#0a192f',
         display: 'standalone',

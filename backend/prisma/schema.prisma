@@ -11,12 +11,12 @@ model User {
   id        String   @id @default(uuid())
   cedula    String   @unique // Identificador principal
   fullName  String
-  email     String?  // Ej: usuario@inapymi.gob.ve
+  email     String?  // Ej: usuario@informaticosvenezuela.com
   gerencia  String?
   unidad    String?
   role      String   @default("Solicitante") // Solicitante, TÃ©cnico IT, Super Admin
   status             String   @default("Activo") // Activo, Inactivo
-  password           String   @default("inapymi")
+  password           String   @default("sat2026")
   mustChangePassword Boolean  @default(false)
   fcmToken           String?  // Token para notificaciones push (Firebase)
   createdAt          DateTime @default(now())

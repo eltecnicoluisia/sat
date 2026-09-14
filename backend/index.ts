@@ -261,7 +261,7 @@ app.post('/api/pymi/chat', async (req, res) => {
     }
 
     if (!matchedResponse) {
-      matchedResponse = "Soy PYMI, el asistente automático de INAPYMI. Por favor detalla bien tu problema para intentar ayudarte, y de no poder, crea un 'Nuevo Requerimiento' desde la Bandeja Principal detallando tu problema para que un Técnico te asista.";
+      matchedResponse = "Soy el asistente automático del SAT de Informáticos Venezuela. Por favor detalla bien tu problema para intentar ayudarte, y de no poder, crea un 'Nuevo Requerimiento' desde la Bandeja Principal para que un Técnico te asista.";
     }
 
     // Retraso artificial para simular tipeo humano

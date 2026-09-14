@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.inapymi.sat',
-  appName: 'SAT',
+  appId: 'com.informaticosvenezuela.sat',
+  appName: 'SAT Informáticos Venezuela',
   webDir: 'dist',
   server: {
     // URL de producción del servidor SAT

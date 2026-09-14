@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">SAT</string>
     <string name="title_activity_main">SAT</string>
-    <string name="package_name">com.inapymi.sat</string>
-    <string name="custom_url_scheme">com.inapymi.sat</string>
+    <string name="package_name">com.informaticosvenezuela.sat</string>
+    <string name="custom_url_scheme">com.informaticosvenezuela.sat</string>
 </resources>

@@ -1,4 +1,4 @@
-package com.inapymi.sat;
+package com.informaticosvenezuela.sat;
 
 import com.getcapacitor.BridgeActivity;
 

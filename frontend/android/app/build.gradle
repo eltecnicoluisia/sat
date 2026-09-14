@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.inapymi.sat"
+    namespace = "com.informaticosvenezuela.sat"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.inapymi.sat"
+        applicationId "com.informaticosvenezuela.sat"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -19,9 +19,9 @@ android {
     signingConfigs {
         release {
             storeFile file('sat-release.keystore')
-            storePassword 'sat2026inapymi'
+            storePassword 'sat2026infovzla'
             keyAlias 'satkey'
-            keyPassword 'sat2026inapymi'
+            keyPassword 'sat2026infovzla'
         }
     }
     buildTypes {

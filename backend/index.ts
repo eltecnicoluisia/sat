@@ -570,6 +570,16 @@ app.put('/api/users/:id', async (req, res) => {
       data,
       select: safeUserSelect
     });
+
+    // Si el rol cambia a Solicitante, liberar automáticamente tickets que tuviera en proceso
+    if (role === 'Solicitante') {
+      await prisma.ticket.updateMany({
+        where: { techId: req.params.id, status: 'En Proceso' },
+        data: { status: 'En Espera', techId: null }
+      });
+      io.emit('tickets:updated');
+    }
+
     io.emit('users:updated');
     res.json(user);
   } catch(err: any) {
